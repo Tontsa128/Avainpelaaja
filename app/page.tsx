@@ -1,0 +1,187 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import {
+  Activity, BarChart3, Bell, Building2, CalendarDays, CheckCircle2, ChevronDown,
+  Clock3, FileText, LayoutDashboard, MapPinned, Menu, Phone, Plus, Search, Settings,
+  ShoppingBag, Target, UserPlus, Users, X, Bot, ListChecks, ArrowUpRight, AlertTriangle
+} from "lucide-react";
+
+type Page =
+  | "dashboard" | "calendar" | "crm" | "sellers" | "locations" | "map"
+  | "sales" | "hours" | "reports" | "ai" | "documents" | "settings";
+
+type Seller = { id:number; name:string; area:string; shift:string; target:number; sales:number; status:"Työssä"|"Varattu"|"Työn alla"|"Poissa" };
+type Location = { id:number; name:string; city:string; status:"Vapaa"|"Aktiivinen"|"Neuvottelu"|"Ongelma"; price:number; score:number; contact:string };
+type Booking = { id:number; date:string; time:string; seller:string; location:string; status:"Vahvistettu"|"Odottaa"|"Ongelma" };
+
+const NAV:{id:Page;label:string;icon:any}[]=[
+  {id:"dashboard",label:"Dashboard",icon:LayoutDashboard},
+  {id:"calendar",label:"Kalenteri",icon:CalendarDays},
+  {id:"crm",label:"CRM / Buukkaus",icon:Phone},
+  {id:"sellers",label:"Myyjät",icon:Users},
+  {id:"locations",label:"Kauppapaikat",icon:Building2},
+  {id:"map",label:"Kartta",icon:MapPinned},
+  {id:"sales",label:"Myynti & tavoitteet",icon:ShoppingBag},
+  {id:"hours",label:"Työajat",icon:Clock3},
+  {id:"reports",label:"Raportit",icon:BarChart3},
+  {id:"ai",label:"AI Action Center",icon:Bot},
+  {id:"documents",label:"Dokumentit",icon:FileText},
+  {id:"settings",label:"Asetukset",icon:Settings}
+];
+
+const initialSellers:Seller[]=[
+ {id:1,name:"Matti Meikäläinen",area:"Jyväskylä",shift:"10:00–18:00",target:8,sales:6,status:"Työssä"},
+ {id:2,name:"Laura Virtanen",area:"Tampere",shift:"09:00–17:00",target:8,sales:9,status:"Työssä"},
+ {id:3,name:"Jussi Korhonen",area:"Helsinki",shift:"12:00–20:00",target:8,sales:5,status:"Työn alla"},
+ {id:4,name:"Anna Laine",area:"Turku",shift:"10:00–18:00",target:8,sales:8,status:"Työssä"},
+ {id:5,name:"Ville Niemi",area:"Oulu",shift:"10:00–18:00",target:7,sales:7,status:"Varattu"},
+ {id:6,name:"Sanna Hämäläinen",area:"Lahti",shift:"11:00–19:00",target:8,sales:4,status:"Poissa"}
+];
+
+const initialLocations:Location[]=[
+ {id:1,name:"Kauppakeskus Seppä",city:"Jyväskylä",status:"Vapaa",price:250,score:8.4,contact:"Maria Laakso"},
+ {id:2,name:"Kauppakeskus Ratina",city:"Tampere",status:"Aktiivinen",price:320,score:9.1,contact:"Antti Salmi"},
+ {id:3,name:"Kauppakeskus Sello",city:"Espoo",status:"Neuvottelu",price:350,score:7.8,contact:"Laura Mäkelä"},
+ {id:4,name:"Kauppakeskus Skanssi",city:"Turku",status:"Vapaa",price:280,score:8.7,contact:"Jari Nieminen"},
+ {id:5,name:"Ideapark",city:"Lempäälä",status:"Aktiivinen",price:300,score:8.9,contact:"Sami Ranta"},
+ {id:6,name:"Valkea",city:"Oulu",status:"Ongelma",price:220,score:6.4,contact:"Kaisa Heikkinen"}
+];
+
+const initialBookings:Booking[]=[
+ {id:1,date:"23.09.2026",time:"10:00–18:00",seller:"Laura Virtanen",location:"Ratina",status:"Vahvistettu"},
+ {id:2,date:"23.09.2026",time:"12:00–20:00",seller:"Jussi Korhonen",location:"Seppä",status:"Vahvistettu"},
+ {id:3,date:"24.09.2026",time:"10:00–18:00",seller:"Anna Laine",location:"Skanssi",status:"Odottaa"},
+ {id:4,date:"24.09.2026",time:"09:00–17:00",seller:"Ville Niemi",location:"Ideapark",status:"Ongelma"}
+];
+
+const crmSeed=[
+ {id:1,stage:"Soitettava",location:"Kauppakeskus Seppä",contact:"Maria Laakso",next:"Soita 23.9.",note:"Kysy lokakuun viikonlopuista"},
+ {id:2,stage:"Neuvottelu",location:"Kauppakeskus Sello",contact:"Laura Mäkelä",next:"Lähetä hinnasto",note:"350 €/päivä alustavasti"},
+ {id:3,stage:"Odottaa vastausta",location:"Valkea",contact:"Kaisa Heikkinen",next:"Seuraa 25.9.",note:"Tekninen lupa vielä avoin"},
+ {id:4,stage:"Vahvistettu",location:"Ratina",contact:"Antti Salmi",next:"Sopimus 30.9.",note:"Lokakuun päivät alustavasti sovittu"}
+];
+
+export default function Page(){
+ const [page,setPage]=useState<Page>("dashboard");
+ const [drawer,setDrawer]=useState(false);
+ const [search,setSearch]=useState("");
+ const [modal,setModal]=useState<"booking"|"seller"|"location"|null>(null);
+ const [toast,setToast]=useState("");
+ const [sellers,setSellers]=useState(initialSellers);
+ const [locations,setLocations]=useState(initialLocations);
+ const [bookings,setBookings]=useState(initialBookings);
+
+ const title=NAV.find(x=>x.id===page)?.label??"Dashboard";
+ const filteredSellers=useMemo(()=>sellers.filter(s=>`${s.name} ${s.area}`.toLowerCase().includes(search.toLowerCase())),[sellers,search]);
+ const filteredLocations=useMemo(()=>locations.filter(l=>`${l.name} ${l.city} ${l.contact}`.toLowerCase().includes(search.toLowerCase())),[locations,search]);
+
+ function go(id:Page){setPage(id);setDrawer(false);window.scrollTo({top:0,behavior:"smooth"});}
+ function notify(message:string){setToast(message);setTimeout(()=>setToast(""),2800);}
+
+ return <div className="min-h-screen bg-[#06101d]">
+  {drawer&&<button aria-label="Sulje valikko" onClick={()=>setDrawer(false)} className="fixed inset-0 z-40 bg-black/70 lg:hidden"/>}
+  <aside className={`fixed inset-y-0 left-0 z-50 w-[292px] border-r border-[#203451] bg-[#091625] p-4 transition-transform lg:translate-x-0 ${drawer?"translate-x-0":"-translate-x-full"}`}>
+   <div className="mb-6 flex items-center justify-between px-2">
+    <div><div className="text-xl font-black">AVAINPELAAJA</div><div className="text-xs text-slate-500">StandSales OS</div></div>
+    <button onClick={()=>setDrawer(false)} className="rounded-lg p-2 hover:bg-white/10 lg:hidden"><X size={20}/></button>
+   </div>
+   <nav className="space-y-1">
+    {NAV.map(n=>{const I=n.icon;return <button key={n.id} onClick={()=>go(n.id)} className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition ${page===n.id?"bg-[#2f6df6] text-white shadow-lg":"text-slate-300 hover:bg-white/5 hover:text-white"}`}><I size={19}/><span>{n.label}</span>{n.id==="ai"&&<span className="ml-auto rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] text-violet-200">AI</span>}</button>})}
+   </nav>
+   <div className="absolute bottom-4 left-4 right-4 rounded-2xl border border-[#203451] bg-white/[.03] p-4"><div className="text-xs text-slate-500">Organisaatio</div><div className="font-semibold">Avainpelaaja Oy</div><div className="mt-1 text-xs text-emerald-400">● Järjestelmä toimii</div></div>
+  </aside>
+
+  <main className="lg:pl-[292px]">
+   <header className="sticky top-0 z-30 border-b border-[#203451] bg-[#06101d]/95 backdrop-blur">
+    <div className="flex items-center gap-3 px-4 py-3">
+     <button aria-label="Avaa päävalikko" aria-expanded={drawer} onClick={()=>setDrawer(v=>!v)} className="rounded-xl border border-[#203451] bg-[#0d1a2c] p-3 hover:bg-white/10"><Menu size={21}/></button>
+     <div className="relative min-w-0 max-w-xl flex-1"><Search className="absolute left-3 top-3.5 text-slate-500" size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Hae myyjää, paikkaa, kontaktia..." className="w-full rounded-xl border border-[#203451] bg-[#0d1a2c] py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500"/></div>
+     <button onClick={()=>setModal("booking")} className="rounded-xl bg-[#2f6df6] p-3 hover:brightness-110" title="Uusi varaus"><Plus size={21}/></button>
+     <button onClick={()=>go("ai")} className="relative hidden rounded-xl border border-[#203451] bg-[#0d1a2c] p-3 sm:block" title="AI Action Center"><Bot size={20}/><span className="absolute -right-1 -top-1 rounded-full bg-red-500 px-1.5 text-[10px]">7</span></button>
+     <button onClick={()=>go("settings")} className="grid h-11 w-11 place-items-center rounded-full bg-blue-600 font-bold" title="Asetukset">T</button>
+    </div>
+   </header>
+
+   <div className="mx-auto max-w-[1500px] p-4 md:p-7">
+    <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+     <div><div className="mb-1 text-sm text-blue-400">Avainpelaaja OS / Operatiivinen keskus</div><h1 className="text-3xl font-black tracking-tight md:text-4xl">{title}</h1><p className="mt-1 text-slate-400">Ständimyynnin kaikki tärkeät tiedot yhdessä paikassa.</p></div>
+     <button onClick={()=>setModal("booking")} className="flex items-center justify-center gap-2 rounded-xl bg-[#2f6df6] px-5 py-3 font-semibold"><Plus size={18}/> Uusi varaus</button>
+    </div>
+
+    {page==="dashboard"&&<Dashboard go={go} open={setModal} sellers={sellers} bookings={bookings}/>}
+    {page==="calendar"&&<Calendar bookings={bookings} open={setModal} notify={notify}/>}
+    {page==="crm"&&<CRM notify={notify}/>}
+    {page==="sellers"&&<Sellers data={filteredSellers} open={setModal}/>}
+    {page==="locations"&&<Locations data={filteredLocations} open={setModal}/>}
+    {page==="map"&&<MapView locations={locations} go={go}/>}
+    {page==="sales"&&<Sales sellers={sellers}/>}
+    {page==="hours"&&<Hours sellers={sellers}/>}
+    {page==="reports"&&<Reports go={go}/>}
+    {page==="ai"&&<AI go={go} notify={notify}/>}
+    {page==="documents"&&<Documents notify={notify}/>}
+    {page==="settings"&&<SettingsView notify={notify}/>}
+   </div>
+  </main>
+
+  {modal&&<Modal type={modal} close={()=>setModal(null)} onSave={(data)=>{
+    if(modal==="seller") setSellers(v=>[...v,{id:Date.now(),name:data.name||"Uusi myyjä",area:data.area||"Ei määritetty",shift:"10:00–18:00",target:8,sales:0,status:"Varattu"}]);
+    if(modal==="location") setLocations(v=>[...v,{id:Date.now(),name:data.name||"Uusi kauppapaikka",city:data.city||"Ei määritetty",status:"Vapaa",price:Number(data.price)||0,score:0,contact:data.contact||"Ei määritetty"}]);
+    if(modal==="booking") setBookings(v=>[...v,{id:Date.now(),date:data.date||"Ei päivä",time:`${data.start||"--:--"}–${data.end||"--:--"}`,seller:data.seller||"Ei määritetty",location:data.location||"Ei määritetty",status:"Odottaa"}]);
+    setModal(null);notify("Tallennettu onnistuneesti");
+  }}/>}
+  {toast&&<div className="fixed bottom-5 right-5 z-[120] rounded-xl border border-emerald-500/30 bg-[#0d201b] px-4 py-3 text-sm text-emerald-300 shadow-2xl">✓ {toast}</div>}
+ </div>
+}
+
+function Dashboard({go,open,sellers,bookings}:{go:(p:Page)=>void;open:any;sellers:Seller[];bookings:Booking[]}){
+ const totalSales=sellers.reduce((a,s)=>a+s.sales,0);
+ return <div className="space-y-6">
+  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+   <Kpi icon="👥" label="Myyjiä yhteensä" value="40" sub="aktiiviset myyjät" onClick={()=>go("sellers")}/>
+   <Kpi icon="🟢" label="Työssä" value={String(sellers.filter(s=>s.status==="Työssä").length)} sub="tämän päivän vuoroissa" onClick={()=>go("hours")}/>
+   <Kpi icon="🔵" label="Varaukset" value={String(bookings.length)} sub="vahvistettua / aktiivista" onClick={()=>go("calendar")}/>
+   <Kpi icon="📱" label="Kaupat" value={String(totalSales+160)} sub="nykyinen raportointijakso" onClick={()=>go("sales")} trend="↑ 12 %"/>
+   <Kpi icon="⚠️" label="Toimenpiteet" value="7" sub="2 kiireellistä" onClick={()=>go("ai")}/>
+  </div>
+  <div className="grid gap-5 xl:grid-cols-3">
+   <section className="xl:col-span-2 panel p-5"><div className="mb-4 flex items-center justify-between"><h2 className="section-title">Tämän päivän työvuorot</h2><button onClick={()=>go("calendar")} className="text-sm text-blue-400">Avaa kalenteri →</button></div><div className="space-y-2">{sellers.slice(0,5).map(s=><div key={s.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-xl border border-[#203451] bg-white/[.02] p-3"><div><b>{s.name}</b><div className="text-xs text-slate-500">{s.area} · {s.shift}</div></div><div className="text-sm">{statusBadge(s.status)}</div><div className="text-right"><b>{s.sales}</b><div className="text-xs text-slate-500">/ {s.target} kauppaa</div></div></div>)}</div></section>
+   <section className="rounded-2xl border border-violet-500/30 bg-violet-950/10 p-5"><div className="mb-4 flex items-center gap-2 text-violet-200"><Bot size={19}/><h2 className="font-bold">AI Action Center</h2></div><div className="space-y-3">{["2 kiireellistä CRM-tehtävää","Jyväskylässä 2 täyttämätöntä tarvetta","1 sopimus päättyy 7 päivän sisällä"].map(x=><div key={x} className="rounded-xl border border-violet-500/20 p-3 text-sm">🟣 {x}</div>)}</div><button onClick={()=>go("ai")} className="mt-5 w-full rounded-xl border border-violet-500/30 py-3 text-violet-200">Avaa AI-keskus</button></section>
+  </div>
+  <section className="panel p-5"><h2 className="section-title mb-4">Nopeat toiminnot</h2><div className="grid gap-3 sm:grid-cols-3"><Quick icon={<Plus/>} text="Uusi varaus" onClick={()=>open("booking")}/><Quick icon={<UserPlus/>} text="Uusi myyjä" onClick={()=>open("seller")}/><Quick icon={<Building2/>} text="Uusi kauppapaikka" onClick={()=>open("location")}/></div></section>
+ </div>
+}
+
+function Calendar({bookings,open,notify}:{bookings:Booking[];open:any;notify:(x:string)=>void}){
+ return <div className="space-y-5"><div className="flex flex-wrap gap-2"><button onClick={()=>open("booking")} className="btn-primary"><Plus size={17}/> Uusi varaus</button><button onClick={()=>notify("Viikkonäkymä valittu")} className="btn-secondary">Viikko</button><button onClick={()=>notify("Päivänäkymä valittu")} className="btn-secondary">Päivä</button><button onClick={()=>notify("Kuukausinäkymä valittu")} className="btn-secondary">Kuukausi</button></div><div className="grid gap-3 md:grid-cols-7">{["Ma 21.9.","Ti 22.9.","Ke 23.9.","To 24.9.","Pe 25.9.","La 26.9.","Su 27.9."].map((d,i)=><div key={d} className="min-h-52 rounded-2xl border border-[#203451] bg-[#0d1a2c] p-3"><div className="mb-3 font-semibold">{d}</div><div className="space-y-2">{bookings.slice(i%2,i%2+2).map(b=><button onClick={()=>notify(`Varaus: ${b.seller} / ${b.location}`)} key={b.id} className={`w-full rounded-xl border p-2 text-left text-xs ${b.status==="Ongelma"?"border-red-500/30 bg-red-500/10":b.status==="Odottaa"?"border-yellow-500/30 bg-yellow-500/10":"border-blue-500/30 bg-blue-500/10"}`}><b>{b.time}</b><br/>{b.seller}<br/><span className="text-slate-400">{b.location}</span></button>)}</div></div>)}</div></div>
+}
+
+function CRM({notify}:{notify:(x:string)=>void}){
+ const stages=["Uusi","Soitettava","Neuvottelu","Tarjous","Odottaa vastausta","Vahvistettu"];
+ return <div className="grid gap-4 overflow-x-auto xl:grid-cols-6">{stages.map(stage=><div key={stage} className="min-w-[230px] rounded-2xl border border-[#203451] bg-[#0d1a2c] p-3"><div className="mb-3 font-bold text-sm">{stage}</div>{crmSeed.filter(x=>x.stage===stage).map(x=><div key={x.id} className="mb-2 rounded-xl border border-[#203451] bg-white/[.02] p-3 text-sm"><b>{x.location}</b><div className="text-xs text-slate-500">{x.contact}</div><div className="mt-2 text-xs text-blue-300">{x.next}</div><p className="mt-2 text-xs text-slate-400">{x.note}</p><button onClick={()=>notify(`CRM avattu: ${x.location}`)} className="mt-2 text-xs text-blue-400">Avaa →</button></div>)}</div>)}</div>
+}
+
+function Sellers({data,open}:{data:Seller[];open:any}){return <Module title="Myyjät" desc="Myyjät, tiimit, työvuorot, työajat ja tulokset." action={<button onClick={()=>open("seller")} className="btn-primary"><Plus size={17}/> Uusi myyjä</button>}><Table headers={["Myyjä","Alue","Vuoro","Tavoite","Kaupat","Status"]} rows={data.map(s=>[s.name,s.area,s.shift,String(s.target),String(s.sales),statusBadge(s.status)])}/></Module>}
+function Locations({data,open}:{data:Location[];open:any}){return <Module title="Kauppapaikat" desc="Kauppapaikkarekisteri, hinnat, kontaktit, sopimukset ja historia." action={<button onClick={()=>open("location")} className="btn-primary"><Plus size={17}/> Uusi kauppapaikka</button>}><Table headers={["Kauppapaikka","Kaupunki","Status","Hinta/pv","Hist. profiili","Yhteyshenkilö"]} rows={data.map(l=>[l.name,l.city,statusBadge(l.status),l.price+" €",l.score?l.score.toFixed(1):"—",l.contact])}/></Module>}
+function MapView({locations,go}:{locations:Location[];go:(p:Page)=>void}){return <Module title="Kartta" desc="Suomen ständipaikat ja niiden operatiivinen tila."><div className="relative h-[540px] overflow-hidden rounded-2xl border border-[#203451] bg-[#10243a]"><div className="absolute inset-0 opacity-20" style={{backgroundImage:"linear-gradient(#8aa4c4 1px,transparent 1px),linear-gradient(90deg,#8aa4c4 1px,transparent 1px)",backgroundSize:"44px 44px"}}/><div className="absolute left-[42%] top-[42%] h-[180px] w-[100px] rounded-[50%] border-2 border-slate-400/30 rotate-12"/>{locations.map((l,i)=><button key={l.id} onClick={()=>go("locations")} className={`absolute rounded-full px-3 py-2 text-xs font-bold text-black shadow-lg ${l.status==="Vapaa"?"bg-emerald-400":l.status==="Aktiivinen"?"bg-blue-400":l.status==="Neuvottelu"?"bg-yellow-300":"bg-red-400"}`} style={{left:`${12+(i*13)%72}%`,top:`${18+(i*17)%60}%`}}>{l.status==="Vapaa"?"🟢":l.status==="Aktiivinen"?"🔵":l.status==="Neuvottelu"?"🟡":"🔴"} {l.city}</button>)}<div className="absolute bottom-4 left-4 rounded-xl border border-[#203451] bg-[#07111f]/95 p-3 text-xs">🟢 Vapaa · 🔵 Aktiivinen · 🟡 Neuvottelu · 🔴 Ongelma</div></div></Module>}
+function Sales({sellers}:{sellers:Seller[]}){const total=sellers.reduce((a,s)=>a+s.sales,0);const target=sellers.reduce((a,s)=>a+s.target,0);return <Module title="Myynti & tavoitteet" desc="Kaupat, tavoitteet, myynti/tunti ja kehitystrendit."><div className="grid gap-4 md:grid-cols-3"><Stat label="Kaupat" value={String(total+160)}/><Stat label="Tavoite" value={String(target+190)}/><Stat label="Toteuma" value="88,6 %"/></div><div className="mt-5 panel p-5"><h3 className="font-bold">Myyjät suhteessa tavoitteeseen</h3><div className="mt-4 space-y-3">{sellers.map(s=><div key={s.id}><div className="mb-1 flex justify-between text-sm"><span>{s.name}</span><span>{s.sales}/{s.target}</span></div><div className="h-2 rounded-full bg-slate-800"><div className={`h-2 rounded-full ${s.sales>=s.target?"bg-emerald-500":"bg-blue-500"}`} style={{width:`${Math.min(100,s.sales/s.target*100)}%`}}/></div></div>)}</div></div></Module>}
+function Hours({sellers}:{sellers:Seller[]}){return <Module title="Työajat" desc="Vuorot, aloitukset, tauot, lopetukset ja poikkeamat."><Table headers={["Myyjä","Vuoro","Aloitus","Lopetus","Tunnit","Tila"]} rows={sellers.map(s=>[s.name,s.shift,"09:58","18:02","8,1 h",statusBadge(s.status)])}/></Module>}
+function Reports({go}:{go:(p:Page)=>void}){return <Module title="Raportit" desc="Myyjä-, paikka-, alue-, kampanja- ja työaikaraportit."><div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">{["Myyjäraportti","Kauppapaikat","Kampanjat","Työajat"].map(x=><button key={x} onClick={()=>go(x==="Myyjäraportti"?"sellers":x==="Kauppapaikat"?"locations":"reports")} className="panel p-5 text-left hover:border-blue-500"><BarChart3 className="mb-3 text-blue-400"/><b>{x}</b><div className="mt-1 text-xs text-slate-500">Avaa raportti →</div></button>)}</div></Module>}
+function AI({go,notify}:{go:(p:Page)=>void;notify:(x:string)=>void}){const actions=["Vahvista 2 ensi viikon ständipaikkaa","Soita 3 vastausta odottavalle kontaktille","Täytä Jyväskylän 2 puuttuvaa ständitarvetta","Tarkista 1 päättyvä sopimus"];return <Module title="AI Action Center" desc="AI-avustus ehdottaa toimenpiteitä järjestelmän datan perusteella. Muutokset hyväksyy käyttäjä."><div className="rounded-2xl border border-violet-500/30 bg-violet-950/10 p-5"><div className="flex items-center gap-2 text-violet-200"><Bot/><b>Mitä minun pitää hoitaa tänään?</b></div><div className="mt-5 space-y-3">{actions.map(x=><button key={x} onClick={()=>notify("Tehtävä merkitty käsittelyyn")} className="flex w-full items-center gap-3 rounded-xl border border-[#203451] bg-[#0d1a2c] p-4 text-left hover:border-violet-500/50">🟣 <span>{x}</span><ArrowUpRight className="ml-auto" size={17}/></button>)}</div></div></Module>}
+function Documents({notify}:{notify:(x:string)=>void}){return <Module title="Dokumentit" desc="Sopimukset, hinnastot, pohjapiirrokset, kuvat ja ohjeet."><div className="panel p-8 text-center"><FileText className="mx-auto mb-3 text-blue-400" size={38}/><h3 className="font-bold">Dokumenttikirjasto</h3><p className="mt-1 text-sm text-slate-500">Tuotannossa tähän liitetään objektitallennus ja käyttöoikeudet.</p><button onClick={()=>notify("Latausikkuna avataan tuotantoversion storage-integraatiolla")} className="btn-primary mt-5"><Plus size={17}/> Lisää dokumentti</button></div></Module>}
+function SettingsView({notify}:{notify:(x:string)=>void}){return <Module title="Asetukset" desc="Organisaatio, käyttäjät, roolit, ilmoitukset ja järjestelmäasetukset."><div className="grid gap-4 md:grid-cols-2"><Setting title="Organisaatio" text="Avainpelaaja Oy" /><Setting title="Käyttäjät & roolit" text="Admin · Buukkaaja · Esihenkilö · Myyjä · Raportointi" /><Setting title="Ilmoitukset" text="Sähköposti · sovellus · kriittiset hälytykset" /><Setting title="Turvallisuus" text="RBAC · audit log · 2FA tuotantovaiheessa" /></div><button onClick={()=>notify("Asetukset tallennettu")} className="btn-primary mt-5">Tallenna asetukset</button></Module>}
+
+function Modal({type,close,onSave}:{type:"booking"|"seller"|"location";close:()=>void;onSave:(d:any)=>void}){
+ const [data,setData]=useState<any>({});
+ const title=type==="booking"?"Uusi varaus":type==="seller"?"Uusi myyjä":"Uusi kauppapaikka";
+ const field=(key:string,label:string,placeholder?:string)=><label className="text-sm text-slate-400">{label}<input value={data[key]||""} onChange={e=>setData({...data,[key]:e.target.value})} placeholder={placeholder} className="mt-1 w-full rounded-xl border border-[#203451] bg-[#0d1a2c] p-3 text-white outline-none focus:border-blue-500"/></label>;
+ return <div className="fixed inset-0 z-[100] grid place-items-center bg-black/75 p-4" onMouseDown={e=>{if(e.target===e.currentTarget)close()}}><div className="w-full max-w-xl rounded-2xl border border-[#203451] bg-[#0b1829] p-5 shadow-2xl"><div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-bold">{title}</h2><button onClick={close} className="rounded-lg p-2 hover:bg-white/10"><X/></button></div><div className="grid gap-4 md:grid-cols-2">{type==="booking"?<>{field("seller","Myyjä","Matti Meikäläinen")}{field("location","Kauppapaikka","Kauppakeskus")}{field("date","Päivämäärä","23.09.2026")}{field("start","Alkuaika","10:00")}{field("end","Loppuaika","18:00")}</>:type==="seller"?<>{field("name","Nimi")}{field("area","Alue")}</>:<>{field("name","Kauppapaikan nimi")}{field("city","Kaupunki")}{field("price","Hinta / päivä")}{field("contact","Yhteyshenkilö")}</>}</div><div className="mt-6 flex justify-end gap-2"><button onClick={close} className="btn-secondary">Peruuta</button><button onClick={()=>onSave(data)} className="btn-primary">Tallenna</button></div></div></div>
+}
+
+function Module({title,desc,action,children}:{title:string;desc:string;action?:React.ReactNode;children:React.ReactNode}){return <section><div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between"><div><h2 className="text-2xl font-bold">{title}</h2><p className="text-sm text-slate-500">{desc}</p></div>{action}</div>{children}</section>}
+function Table({headers,rows}:{headers:string[];rows:(string|React.ReactNode)[][]}){return <div className="panel overflow-hidden"><div className="scrollbar overflow-x-auto"><table className="w-full min-w-[720px] text-sm"><thead><tr className="border-b border-[#203451] text-left text-slate-500">{headers.map(h=><th key={h} className="px-4 py-3 font-medium">{h}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={i} className="border-b border-[#203451]/60 hover:bg-white/[.025]">{r.map((c,j)=><td key={j} className="px-4 py-3">{j===0&&typeof c==="string"?<b>{c}</b>:c}</td>)}</tr>)}</tbody></table></div></div>}
+function Kpi({icon,label,value,sub,onClick,trend}:{icon:string;label:string;value:string;sub:string;onClick:()=>void;trend?:string}){return <button onClick={onClick} className="panel p-5 text-left transition hover:-translate-y-0.5 hover:border-blue-500/50"><div className="text-xl">{icon}</div><div className="mt-2 text-sm text-slate-400">{label}</div><div className="mt-1 flex items-end gap-3"><div className="text-4xl font-black">{value}</div>{trend&&<span className="pb-1 text-sm text-emerald-400">{trend}</span>}</div><div className="mt-1 text-xs text-slate-500">{sub}</div></button>}
+function Quick({icon,text,onClick}:{icon:React.ReactNode;text:string;onClick:()=>void}){return <button onClick={onClick} className="flex items-center gap-3 rounded-xl border border-[#203451] p-4 text-left font-semibold hover:border-blue-500">{icon}{text}</button>}
+function Stat({label,value}:{label:string;value:string}){return <div className="panel p-5"><div className="text-sm text-slate-400">{label}</div><div className="mt-2 text-4xl font-black">{value}</div></div>}
+function Setting({title,text}:{title:string;text:string}){return <div className="panel p-5"><b>{title}</b><p className="mt-2 text-sm text-slate-400">{text}</p></div>}
+function statusBadge(status:string){const map:any={Työssä:"🟢",Varattu:"🔵","Työn alla":"🟡",Poissa:"⚪",Vapaa:"🟢",Aktiivinen:"🔵",Neuvottelu:"🟡",Ongelma:"🔴",Vahvistettu:"🟢",Odottaa:"🟡"};return <span>{map[status]||"⚪"} {status}</span>}
