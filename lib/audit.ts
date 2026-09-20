@@ -1,5 +1,10 @@
 import { prisma } from "./prisma";
 
+function toJsonValue(value: unknown) {
+  if (value === undefined) return undefined;
+  return JSON.parse(JSON.stringify(value));
+}
+
 export async function writeAudit(input: {
   organizationId: string;
   actorUserId?: string;
@@ -16,8 +21,8 @@ export async function writeAudit(input: {
       action: input.action,
       entityType: input.entityType,
       entityId: input.entityId,
-      oldValue: input.oldValue as object | undefined,
-      newValue: input.newValue as object | undefined,
+      oldValue: toJsonValue(input.oldValue),
+      newValue: toJsonValue(input.newValue),
     },
   });
 }
