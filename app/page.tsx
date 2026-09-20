@@ -7,6 +7,8 @@ import {
   ShoppingBag, Target, UserPlus, Users, X, Bot, ListChecks, ArrowUpRight, AlertTriangle
 } from "lucide-react";
 
+type AppMode = "demo" | "work";
+
 type Page =
   | "dashboard" | "calendar" | "crm" | "sellers" | "locations" | "map"
   | "sales" | "hours" | "reports" | "ai" | "documents" | "settings";
@@ -64,21 +66,37 @@ const crmSeed=[
 
 export default function Page(){
  const [page,setPage]=useState<Page>("dashboard");
+ const [mode,setMode]=useState<AppMode>("demo");
  const [drawer,setDrawer]=useState(false);
  const [search,setSearch]=useState("");
  const [modal,setModal]=useState<"booking"|"seller"|"location"|null>(null);
  const [toast,setToast]=useState("");
- const [sellers,setSellers]=useState(initialSellers);
- const [locations,setLocations]=useState(initialLocations);
- const [bookings,setBookings]=useState(initialBookings);
+ const [sellers,setSellers]=useState<Seller[]>([]);
+ const [locations,setLocations]=useState<Location[]>([]);
+ const [bookings,setBookings]=useState<Booking[]>([]);
+ const demoSellers=mode==="demo"?initialSellers:sellers;
+ const demoLocations=mode==="demo"?initialLocations:locations;
+ const demoBookings=mode==="demo"?initialBookings:bookings;
 
  const title=NAV.find(x=>x.id===page)?.label??"Dashboard";
- const filteredSellers=useMemo(()=>sellers.filter(s=>`${s.name} ${s.area}`.toLowerCase().includes(search.toLowerCase())),[sellers,search]);
- const filteredLocations=useMemo(()=>locations.filter(l=>`${l.name} ${l.city} ${l.contact}`.toLowerCase().includes(search.toLowerCase())),[locations,search]);
+ const filteredSellers=useMemo(()=>demoSellers.filter(s=>`${s.name} ${s.area}`.toLowerCase().includes(search.toLowerCase())),[sellers,search]);
+ const filteredLocations=useMemo(()=>demoLocations.filter(l=>`${l.name} ${l.city} ${l.contact}`.toLowerCase().includes(search.toLowerCase())),[locations,search]);
 
- function go(id:Page){setPage(id);setDrawer(false);window.scrollTo({top:0,behavior:"smooth"});}
+ function switchMode(next:AppMode){
+  setMode(next);
+  setPage("dashboard");
+  setSearch("");
+  if(next==="demo"){
+   setSellers([]);setLocations([]);setBookings([]);
+   notify("Demo-tila käytössä: esimerkkidata ladattu");
+  } else {
+   setSellers([]);setLocations([]);setBookings([]);
+   notify("Työtila käytössä: aloita omien tietojen syöttäminen");
+  }
+ }
  function notify(message:string){setToast(message);setTimeout(()=>setToast(""),2800);}
 
+ function go(id:Page){setPage(id);setDrawer(false);window.scrollTo({top:0,behavior:"smooth"});}
  return <div className="min-h-screen bg-[#06101d]">
   {drawer&&<button aria-label="Sulje valikko" onClick={()=>setDrawer(false)} className="fixed inset-0 z-40 bg-black/70 lg:hidden"/>}
   <aside className={`fixed inset-y-0 left-0 z-50 w-[292px] border-r border-[#203451] bg-[#091625] p-4 transition-transform lg:translate-x-0 ${drawer?"translate-x-0":"-translate-x-full"}`}>
@@ -96,8 +114,12 @@ export default function Page(){
    <header className="sticky top-0 z-30 border-b border-[#203451] bg-[#06101d]/95 backdrop-blur">
     <div className="flex items-center gap-3 px-4 py-3">
      <button aria-label="Avaa päävalikko" aria-expanded={drawer} onClick={()=>setDrawer(v=>!v)} className="rounded-xl border border-[#203451] bg-[#0d1a2c] p-3 hover:bg-white/10"><Menu size={21}/></button>
-     <div className="relative min-w-0 max-w-xl flex-1"><Search className="absolute left-3 top-3.5 text-slate-500" size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Hae myyjää, paikkaa, kontaktia..." className="w-full rounded-xl border border-[#203451] bg-[#0d1a2c] py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500"/></div>
-     <button onClick={()=>setModal("booking")} className="rounded-xl bg-[#2f6df6] p-3 hover:brightness-110" title="Uusi varaus"><Plus size={21}/></button>
+     <div className="relative min-w-0 max-w-xl flex-1"><Search className="absolute left-3 top-3.5 text-slate-500" size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder={mode==="demo"?"Hae demo-myytäjää, paikkaa tai kontaktia...":"Hae omista tiedoista..."} className="w-full rounded-xl border border-[#203451] bg-[#0d1a2c] py-3 pl-10 pr-4 text-sm outline-none focus:border-blue-500"/></div>
+     <div className="hidden rounded-xl border border-[#203451] bg-[#0d1a2c] p-1 sm:flex">
+      <button onClick={()=>switchMode("demo")} className={`rounded-lg px-3 py-2 text-xs font-bold ${mode==="demo"?"bg-violet-600 text-white":"text-slate-400"}`}>🎬 DEMO</button>
+      <button onClick={()=>switchMode("work")} className={`rounded-lg px-3 py-2 text-xs font-bold ${mode==="work"?"bg-emerald-600 text-white":"text-slate-400"}`}>🛠 TYÖ</button>
+     </div>
+     <button onClick={()=>mode==="work"&&setModal("booking")} className={`rounded-xl p-3 ${mode==="work"?"bg-[#2f6df6] hover:brightness-110":"bg-white/10 text-slate-400"}` hover:brightness-110" title={mode==="work"?"Uusi varaus":"Demo-tila"}><Plus size={21}/></button>
      <button onClick={()=>go("ai")} className="relative hidden rounded-xl border border-[#203451] bg-[#0d1a2c] p-3 sm:block" title="AI Action Center"><Bot size={20}/><span className="absolute -right-1 -top-1 rounded-full bg-red-500 px-1.5 text-[10px]">7</span></button>
      <button onClick={()=>go("settings")} className="grid h-11 w-11 place-items-center rounded-full bg-blue-600 font-bold" title="Asetukset">T</button>
     </div>
@@ -105,18 +127,18 @@ export default function Page(){
 
    <div className="mx-auto max-w-[1500px] p-4 md:p-7">
     <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-     <div><div className="mb-1 text-sm text-blue-400">Avainpelaaja OS / Operatiivinen keskus</div><h1 className="text-3xl font-black tracking-tight md:text-4xl">{title}</h1><p className="mt-1 text-slate-400">Ständimyynnin kaikki tärkeät tiedot yhdessä paikassa.</p></div>
-     <button onClick={()=>setModal("booking")} className="flex items-center justify-center gap-2 rounded-xl bg-[#2f6df6] px-5 py-3 font-semibold"><Plus size={18}/> Uusi varaus</button>
+     <div><div className="mb-1 text-sm text-blue-400">Avainpelaaja OS / {mode==="demo"?"DEMO – esimerkkidata":"TYÖ – oma työtila"}</div><h1 className="text-3xl font-black tracking-tight md:text-4xl">{title}</h1><p className="mt-1 text-slate-400">Ständimyynnin kaikki tärkeät tiedot yhdessä paikassa.</p></div>
+     <button onClick={()=>mode==="work"&&setModal("booking")} className={`flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-semibold ${mode==="work"?"bg-[#2f6df6]":"bg-violet-600"}`}>{mode==="work"?<><Plus size={18}/> Uusi varaus</>:<>🎬 Demo käynnissä</>}</button>
     </div>
 
-    {page==="dashboard"&&<Dashboard go={go} open={setModal} sellers={sellers} bookings={bookings}/>}
-    {page==="calendar"&&<Calendar bookings={bookings} open={setModal} notify={notify}/>}
-    {page==="crm"&&<CRM notify={notify}/>}
+    {page==="dashboard"&&<Dashboard go={go} open={setModal} sellers={demoSellers} bookings={demoBookings} mode={mode}/>}
+    {page==="calendar"&&<Calendar bookings={demoBookings} open={setModal} notify={notify}/>}
+    {page==="crm"&&<CRM notify={notify} mode={mode}/>}
     {page==="sellers"&&<Sellers data={filteredSellers} open={setModal}/>}
     {page==="locations"&&<Locations data={filteredLocations} open={setModal}/>}
-    {page==="map"&&<MapView locations={locations} go={go}/>}
-    {page==="sales"&&<Sales sellers={sellers}/>}
-    {page==="hours"&&<Hours sellers={sellers}/>}
+    {page==="map"&&<MapView locations={demoLocations} go={go}/>}
+    {page==="sales"&&<Sales sellers={demoSellers}/>}
+    {page==="hours"&&<Hours sellers={demoSellers}/>}
     {page==="reports"&&<Reports go={go}/>}
     {page==="ai"&&<AI go={go} notify={notify}/>}
     {page==="documents"&&<Documents notify={notify}/>}
@@ -134,19 +156,19 @@ export default function Page(){
  </div>
 }
 
-function Dashboard({go,open,sellers,bookings}:{go:(p:Page)=>void;open:any;sellers:Seller[];bookings:Booking[]}){
+function Dashboard({go,open,sellers,bookings,mode}:{go:(p:Page)=>void;open:any;sellers:Seller[];bookings:Booking[];mode:AppMode}){
  const totalSales=sellers.reduce((a,s)=>a+s.sales,0);
  return <div className="space-y-6">
   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-   <Kpi icon="👥" label="Myyjiä yhteensä" value="40" sub="aktiiviset myyjät" onClick={()=>go("sellers")}/>
+   <Kpi icon="👥" label="Myyjiä yhteensä" value={mode==="demo"?"40":String(sellers.length)} sub="aktiiviset myyjät" onClick={()=>go("sellers")}/>
    <Kpi icon="🟢" label="Työssä" value={String(sellers.filter(s=>s.status==="Työssä").length)} sub="tämän päivän vuoroissa" onClick={()=>go("hours")}/>
    <Kpi icon="🔵" label="Varaukset" value={String(bookings.length)} sub="vahvistettua / aktiivista" onClick={()=>go("calendar")}/>
-   <Kpi icon="📱" label="Kaupat" value={String(totalSales+160)} sub="nykyinen raportointijakso" onClick={()=>go("sales")} trend="↑ 12 %"/>
-   <Kpi icon="⚠️" label="Toimenpiteet" value="7" sub="2 kiireellistä" onClick={()=>go("ai")}/>
+   <Kpi icon="📱" label="Kaupat" value={mode==="demo"?String(totalSales+160):String(totalSales)} sub="nykyinen raportointijakso" onClick={()=>go("sales")} trend="↑ 12 %"/>
+   <Kpi icon="⚠️" label="Toimenpiteet" value={mode==="demo"?"7":"0" sub="2 kiireellistä" onClick={()=>go("ai")}/>
   </div>
   <div className="grid gap-5 xl:grid-cols-3">
-   <section className="xl:col-span-2 panel p-5"><div className="mb-4 flex items-center justify-between"><h2 className="section-title">Tämän päivän työvuorot</h2><button onClick={()=>go("calendar")} className="text-sm text-blue-400">Avaa kalenteri →</button></div><div className="space-y-2">{sellers.slice(0,5).map(s=><div key={s.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-xl border border-[#203451] bg-white/[.02] p-3"><div><b>{s.name}</b><div className="text-xs text-slate-500">{s.area} · {s.shift}</div></div><div className="text-sm">{statusBadge(s.status)}</div><div className="text-right"><b>{s.sales}</b><div className="text-xs text-slate-500">/ {s.target} kauppaa</div></div></div>)}</div></section>
-   <section className="rounded-2xl border border-violet-500/30 bg-violet-950/10 p-5"><div className="mb-4 flex items-center gap-2 text-violet-200"><Bot size={19}/><h2 className="font-bold">AI Action Center</h2></div><div className="space-y-3">{["2 kiireellistä CRM-tehtävää","Jyväskylässä 2 täyttämätöntä tarvetta","1 sopimus päättyy 7 päivän sisällä"].map(x=><div key={x} className="rounded-xl border border-violet-500/20 p-3 text-sm">🟣 {x}</div>)}</div><button onClick={()=>go("ai")} className="mt-5 w-full rounded-xl border border-violet-500/30 py-3 text-violet-200">Avaa AI-keskus</button></section>
+   <section className="xl:col-span-2 panel p-5"><div className="mb-4 flex items-center justify-between"><h2 className="section-title">Tämän päivän työvuorot</h2><button onClick={()=>go("calendar")} className="text-sm text-blue-400">Avaa kalenteri →</button></div><div className="space-y-2">{sellers.length===0?<EmptyState text="Ei vielä myyjiä. Lisää ensimmäinen myyjä työtilassa."/>:sellers.slice(0,5).map(s=><div key={s.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-xl border border-[#203451] bg-white/[.02] p-3"><div><b>{s.name}</b><div className="text-xs text-slate-500">{s.area} · {s.shift}</div></div><div className="text-sm">{statusBadge(s.status)}</div><div className="text-right"><b>{s.sales}</b><div className="text-xs text-slate-500">/ {s.target} kauppaa</div></div></div>)}</div></section>
+   <section className="rounded-2xl border border-violet-500/30 bg-violet-950/10 p-5"><div className="mb-4 flex items-center gap-2 text-violet-200"><Bot size={19}/><h2 className="font-bold">AI Action Center</h2></div><div className="space-y-3">{(mode==="demo"?["2 kiireellistä CRM-tehtävää","Jyväskylässä 2 täyttämätöntä tarvetta","1 sopimus päättyy 7 päivän sisällä"]:["Ei vielä avoimia AI-toimenpiteitä","Kun dataa lisätään, AI alkaa ehdottaa tehtäviä","Kaikki muutokset hyväksytään käyttäjän toimesta"]).map(x=><div key={x} className="rounded-xl border border-violet-500/20 p-3 text-sm">🟣 {x}</div>)}</div><button onClick={()=>go("ai")} className="mt-5 w-full rounded-xl border border-violet-500/30 py-3 text-violet-200">Avaa AI-keskus</button></section>
   </div>
   <section className="panel p-5"><h2 className="section-title mb-4">Nopeat toiminnot</h2><div className="grid gap-3 sm:grid-cols-3"><Quick icon={<Plus/>} text="Uusi varaus" onClick={()=>open("booking")}/><Quick icon={<UserPlus/>} text="Uusi myyjä" onClick={()=>open("seller")}/><Quick icon={<Building2/>} text="Uusi kauppapaikka" onClick={()=>open("location")}/></div></section>
  </div>
@@ -156,9 +178,9 @@ function Calendar({bookings,open,notify}:{bookings:Booking[];open:any;notify:(x:
  return <div className="space-y-5"><div className="flex flex-wrap gap-2"><button onClick={()=>open("booking")} className="btn-primary"><Plus size={17}/> Uusi varaus</button><button onClick={()=>notify("Viikkonäkymä valittu")} className="btn-secondary">Viikko</button><button onClick={()=>notify("Päivänäkymä valittu")} className="btn-secondary">Päivä</button><button onClick={()=>notify("Kuukausinäkymä valittu")} className="btn-secondary">Kuukausi</button></div><div className="grid gap-3 md:grid-cols-7">{["Ma 21.9.","Ti 22.9.","Ke 23.9.","To 24.9.","Pe 25.9.","La 26.9.","Su 27.9."].map((d,i)=><div key={d} className="min-h-52 rounded-2xl border border-[#203451] bg-[#0d1a2c] p-3"><div className="mb-3 font-semibold">{d}</div><div className="space-y-2">{bookings.slice(i%2,i%2+2).map(b=><button onClick={()=>notify(`Varaus: ${b.seller} / ${b.location}`)} key={b.id} className={`w-full rounded-xl border p-2 text-left text-xs ${b.status==="Ongelma"?"border-red-500/30 bg-red-500/10":b.status==="Odottaa"?"border-yellow-500/30 bg-yellow-500/10":"border-blue-500/30 bg-blue-500/10"}`}><b>{b.time}</b><br/>{b.seller}<br/><span className="text-slate-400">{b.location}</span></button>)}</div></div>)}</div></div>
 }
 
-function CRM({notify}:{notify:(x:string)=>void}){
+function CRM({notify,mode}:{notify:(x:string)=>void;mode:AppMode}){
  const stages=["Uusi","Soitettava","Neuvottelu","Tarjous","Odottaa vastausta","Vahvistettu"];
- return <div className="grid gap-4 overflow-x-auto xl:grid-cols-6">{stages.map(stage=><div key={stage} className="min-w-[230px] rounded-2xl border border-[#203451] bg-[#0d1a2c] p-3"><div className="mb-3 font-bold text-sm">{stage}</div>{crmSeed.filter(x=>x.stage===stage).map(x=><div key={x.id} className="mb-2 rounded-xl border border-[#203451] bg-white/[.02] p-3 text-sm"><b>{x.location}</b><div className="text-xs text-slate-500">{x.contact}</div><div className="mt-2 text-xs text-blue-300">{x.next}</div><p className="mt-2 text-xs text-slate-400">{x.note}</p><button onClick={()=>notify(`CRM avattu: ${x.location}`)} className="mt-2 text-xs text-blue-400">Avaa →</button></div>)}</div>)}</div>
+ return <div className="grid gap-4 overflow-x-auto xl:grid-cols-6">{stages.map(stage=><div key={stage} className="min-w-[230px] rounded-2xl border border-[#203451] bg-[#0d1a2c] p-3"><div className="mb-3 font-bold text-sm">{stage}</div>{(mode==="demo"?crmSeed:[]).filter(x=>x.stage===stage).map(x=><div key={x.id} className="mb-2 rounded-xl border border-[#203451] bg-white/[.02] p-3 text-sm"><b>{x.location}</b><div className="text-xs text-slate-500">{x.contact}</div><div className="mt-2 text-xs text-blue-300">{x.next}</div><p className="mt-2 text-xs text-slate-400">{x.note}</p><button onClick={()=>notify(`CRM avattu: ${x.location}`)} className="mt-2 text-xs text-blue-400">Avaa →</button></div>)}</div>)}</div>
 }
 
 function Sellers({data,open}:{data:Seller[];open:any}){return <Module title="Myyjät" desc="Myyjät, tiimit, työvuorot, työajat ja tulokset." action={<button onClick={()=>open("seller")} className="btn-primary"><Plus size={17}/> Uusi myyjä</button>}><Table headers={["Myyjä","Alue","Vuoro","Tavoite","Kaupat","Status"]} rows={data.map(s=>[s.name,s.area,s.shift,String(s.target),String(s.sales),statusBadge(s.status)])}/></Module>}
@@ -178,7 +200,7 @@ function Modal({type,close,onSave}:{type:"booking"|"seller"|"location";close:()=
  return <div className="fixed inset-0 z-[100] grid place-items-center bg-black/75 p-4" onMouseDown={e=>{if(e.target===e.currentTarget)close()}}><div className="w-full max-w-xl rounded-2xl border border-[#203451] bg-[#0b1829] p-5 shadow-2xl"><div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-bold">{title}</h2><button onClick={close} className="rounded-lg p-2 hover:bg-white/10"><X/></button></div><div className="grid gap-4 md:grid-cols-2">{type==="booking"?<>{field("seller","Myyjä","Matti Meikäläinen")}{field("location","Kauppapaikka","Kauppakeskus")}{field("date","Päivämäärä","23.09.2026")}{field("start","Alkuaika","10:00")}{field("end","Loppuaika","18:00")}</>:type==="seller"?<>{field("name","Nimi")}{field("area","Alue")}</>:<>{field("name","Kauppapaikan nimi")}{field("city","Kaupunki")}{field("price","Hinta / päivä")}{field("contact","Yhteyshenkilö")}</>}</div><div className="mt-6 flex justify-end gap-2"><button onClick={close} className="btn-secondary">Peruuta</button><button onClick={()=>onSave(data)} className="btn-primary">Tallenna</button></div></div></div>
 }
 
-function Module({title,desc,action,children}:{title:string;desc:string;action?:React.ReactNode;children:React.ReactNode}){return <section><div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between"><div><h2 className="text-2xl font-bold">{title}</h2><p className="text-sm text-slate-500">{desc}</p></div>{action}</div>{children}</section>}
+function EmptyState({text}:{text:string}){return <div className="rounded-xl border border-dashed border-[#304968] p-8 text-center text-sm text-slate-500">📭 {text}</div>}\n\nfunction Module({title,desc,action,children}:{title:string;desc:string;action?:React.ReactNode;children:React.ReactNode}){return <section><div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between"><div><h2 className="text-2xl font-bold">{title}</h2><p className="text-sm text-slate-500">{desc}</p></div>{action}</div>{children}</section>}
 function Table({headers,rows}:{headers:string[];rows:(string|React.ReactNode)[][]}){return <div className="panel overflow-hidden"><div className="scrollbar overflow-x-auto"><table className="w-full min-w-[720px] text-sm"><thead><tr className="border-b border-[#203451] text-left text-slate-500">{headers.map(h=><th key={h} className="px-4 py-3 font-medium">{h}</th>)}</tr></thead><tbody>{rows.map((r,i)=><tr key={i} className="border-b border-[#203451]/60 hover:bg-white/[.025]">{r.map((c,j)=><td key={j} className="px-4 py-3">{j===0&&typeof c==="string"?<b>{c}</b>:c}</td>)}</tr>)}</tbody></table></div></div>}
 function Kpi({icon,label,value,sub,onClick,trend}:{icon:string;label:string;value:string;sub:string;onClick:()=>void;trend?:string}){return <button onClick={onClick} className="panel p-5 text-left transition hover:-translate-y-0.5 hover:border-blue-500/50"><div className="text-xl">{icon}</div><div className="mt-2 text-sm text-slate-400">{label}</div><div className="mt-1 flex items-end gap-3"><div className="text-4xl font-black">{value}</div>{trend&&<span className="pb-1 text-sm text-emerald-400">{trend}</span>}</div><div className="mt-1 text-xs text-slate-500">{sub}</div></button>}
 function Quick({icon,text,onClick}:{icon:React.ReactNode;text:string;onClick:()=>void}){return <button onClick={onClick} className="flex items-center gap-3 rounded-xl border border-[#203451] p-4 text-left font-semibold hover:border-blue-500">{icon}{text}</button>}
