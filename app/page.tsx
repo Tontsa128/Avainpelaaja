@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity, BarChart3, Bell, Building2, CalendarDays, CheckCircle2, ChevronDown,
   Clock3, FileText, LayoutDashboard, MapPinned, Menu, Phone, Plus, Search, Settings,
   ShoppingBag, Target, UserPlus, Users, X, Bot, ListChecks, ArrowUpRight, AlertTriangle
 } from "lucide-react";
+import { api } from "@/lib/client-api";
 
 type AppMode = "demo" | "work";
 
@@ -78,6 +79,21 @@ export default function Page(){
  const demoLocations=mode==="demo"?initialLocations:locations;
  const demoBookings=mode==="demo"?initialBookings:bookings;
 
+ useEffect(()=>{
+  if(mode!=="work") return;
+  let cancelled=false;
+  Promise.all([api.sellers(),api.locations(),api.bookings()])
+   .then(([sellerRes,locationRes,bookingRes])=>{
+    if(cancelled) return;
+    setSellers((sellerRes.data as any[]).map(s=>({id:s.id,name:s.name,area:s.area||"Ei määritetty",shift:"—",target:s.targetPerShift||0,sales:0,status:s.active?"Varattu":"Poissa"})));
+    setLocations((locationRes.data as any[]).map(l=>({id:l.id,name:l.name,city:l.city,status:l.status==="ACTIVE"?"Aktiivinen":l.status==="NEGOTIATION"?"Neuvottelu":l.status==="PROBLEM"?"Ongelma":"Vapaa",price:l.pricePerDay?Number(l.pricePerDay):0,score:l.score?Number(l.score):0,contact:l.contacts?.[0]?.name||"Ei määritetty"})));
+    setBookings((bookingRes.data as any[]).map(b=>({id:b.id,date:new Date(b.startsAt).toLocaleDateString("fi-FI"),time:new Date(b.startsAt).toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"})+"–"+new Date(b.endsAt).toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"}),seller:b.seller?.name||"Ei määritetty",location:b.location?.name||"Ei määritetty",status:b.status==="CONFIRMED"?"Vahvistettu":b.status==="PROBLEM"?"Ongelma":"Odottaa"})));
+   })
+   .catch(error=>notify("Työtilan tietoja ei voitu ladata: "+error.message));
+  return()=>{cancelled=true};
+ },[mode]);
+
+
  const title=NAV.find(x=>x.id===page)?.label??"Dashboard";
  const filteredSellers=useMemo(()=>demoSellers.filter(s=>`${s.name} ${s.area}`.toLowerCase().includes(search.toLowerCase())),[sellers,search]);
  const filteredLocations=useMemo(()=>demoLocations.filter(l=>`${l.name} ${l.city} ${l.contact}`.toLowerCase().includes(search.toLowerCase())),[locations,search]);
@@ -146,12 +162,7 @@ export default function Page(){
    </div>
   </main>
 
-  {modal&&<Modal type={modal} close={()=>setModal(null)} onSave={(data)=>{
-    if(modal==="seller") setSellers(v=>[...v,{id:Date.now(),name:data.name||"Uusi myyjä",area:data.area||"Ei määritetty",shift:"10:00–18:00",target:8,sales:0,status:"Varattu"}]);
-    if(modal==="location") setLocations(v=>[...v,{id:Date.now(),name:data.name||"Uusi kauppapaikka",city:data.city||"Ei määritetty",status:"Vapaa",price:Number(data.price)||0,score:0,contact:data.contact||"Ei määritetty"}]);
-    if(modal==="booking") setBookings(v=>[...v,{id:Date.now(),date:data.date||"Ei päivä",time:`${data.start||"--:--"}–${data.end||"--:--"}`,seller:data.seller||"Ei määritetty",location:data.location||"Ei määritetty",status:"Odottaa"}]);
-    setModal(null);notify("Tallennettu onnistuneesti");
-  }}/>}
+  {modal&&<Modal type={modal} close={()=>setModal(null)} onSave={async(data)=>{try{if(mode==="work"){if(modal==="seller"){const res:any=await api.createSeller({name:data.name,area:data.area,targetPerShift:8});setSellers(v=>[...v,{id:res.data.id,name:res.data.name,area:res.data.area||"Ei määritetty",shift:"—",target:res.data.targetPerShift||0,sales:0,status:"Varattu"}]);}if(modal==="location"){const res:any=await api.createLocation({name:data.name,city:data.city,pricePerDay:Number(data.price)||0});setLocations(v=>[...v,{id:res.data.id,name:res.data.name,city:res.data.city,status:"Vapaa",price:Number(res.data.pricePerDay)||0,score:0,contact:"Ei määritetty"}]);}if(modal==="booking"){const parts=String(data.date||"").split(".");const isoDate=parts.length===3?parts[2]+"-"+parts[1]+"-"+parts[0]:data.date;const res:any=await api.createBooking({startsAt:isoDate+"T"+(data.start||"10:00")+":00",endsAt:isoDate+"T"+(data.end||"18:00")+":00"});const b=res.data;setBookings(v=>[...v,{id:b.id,date:new Date(b.startsAt).toLocaleDateString("fi-FI"),time:new Date(b.startsAt).toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"})+"–"+new Date(b.endsAt).toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"}),seller:b.seller?.name||data.seller||"Ei määritetty",location:b.location?.name||data.location||"Ei määritetty",status:"Odottaa"}]);}}else{if(modal==="seller")setSellers(v=>[...v,{id:Date.now(),name:data.name||"Uusi myyjä",area:data.area||"Ei määritetty",shift:"10:00–18:00",target:8,sales:0,status:"Varattu"}]);if(modal==="location")setLocations(v=>[...v,{id:Date.now(),name:data.name||"Uusi kauppapaikka",city:data.city||"Ei määritetty",status:"Vapaa",price:Number(data.price)||0,score:0,contact:data.contact||"Ei määritetty"}]);if(modal==="booking")setBookings(v=>[...v,{id:Date.now(),date:data.date||"Ei päivä",time:(data.start||"--:--")+"–"+(data.end||"--:--"),seller:data.seller||"Ei määritetty",location:data.location||"Ei määritetty",status:"Odottaa"}]);}setModal(null);notify("Tallennettu onnistuneesti");}catch(error){notify(error instanceof Error?error.message:"Tallennus epäonnistui");}}/>}
   {toast&&<div className="fixed bottom-5 right-5 z-[120] rounded-xl border border-emerald-500/30 bg-[#0d201b] px-4 py-3 text-sm text-emerald-300 shadow-2xl">✓ {toast}</div>}
  </div>
 }
@@ -164,7 +175,7 @@ function Dashboard({go,open,sellers,bookings,mode}:{go:(p:Page)=>void;open:any;s
    <Kpi icon="🟢" label="Työssä" value={String(sellers.filter(s=>s.status==="Työssä").length)} sub="tämän päivän vuoroissa" onClick={()=>go("hours")}/>
    <Kpi icon="🔵" label="Varaukset" value={String(bookings.length)} sub="vahvistettua / aktiivista" onClick={()=>go("calendar")}/>
    <Kpi icon="📱" label="Kaupat" value={mode==="demo"?String(totalSales+160):String(totalSales)} sub="nykyinen raportointijakso" onClick={()=>go("sales")} trend="↑ 12 %"/>
-   <Kpi icon="⚠️" label="Toimenpiteet" value={mode==="demo"?"7":"0" sub="2 kiireellistä" onClick={()=>go("ai")}/>
+   <Kpi icon="⚠️" label="Toimenpiteet" value={mode==="demo"?"7":"0"} sub="2 kiireellistä" onClick={()=>go("ai")}/>
   </div>
   <div className="grid gap-5 xl:grid-cols-3">
    <section className="xl:col-span-2 panel p-5"><div className="mb-4 flex items-center justify-between"><h2 className="section-title">Tämän päivän työvuorot</h2><button onClick={()=>go("calendar")} className="text-sm text-blue-400">Avaa kalenteri →</button></div><div className="space-y-2">{sellers.length===0?<EmptyState text="Ei vielä myyjiä. Lisää ensimmäinen myyjä työtilassa."/>:sellers.slice(0,5).map(s=><div key={s.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-xl border border-[#203451] bg-white/[.02] p-3"><div><b>{s.name}</b><div className="text-xs text-slate-500">{s.area} · {s.shift}</div></div><div className="text-sm">{statusBadge(s.status)}</div><div className="text-right"><b>{s.sales}</b><div className="text-xs text-slate-500">/ {s.target} kauppaa</div></div></div>)}</div></section>
