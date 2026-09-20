@@ -13,18 +13,20 @@
 - [x] Prisma data model
 
 ## Phase 2 — Real data
-- [ ] PostgreSQL connection
-- [ ] Prisma migrations
-- [ ] Seed organization and demo data
-- [ ] Repository/service layer
-- [ ] CRUD API
-- [ ] Real dashboard KPIs
+- [x] PostgreSQL connection configuration
+- [ ] Prisma migrations (run against production database)
+- [x] Seed organization and demo data
+- [x] Shared Prisma client
+- [x] Tenant-scoped CRUD API for sellers, locations and bookings
+- [x] Booking conflict validation
+- [x] Audit write service
+- [ ] Real dashboard KPIs wired to API
 
 ## Phase 3 — Security
 - [ ] Authentication
 - [ ] RBAC
-- [ ] Organization isolation
-- [ ] Audit log service
+- [x] Organization isolation at API boundary
+- [x] Audit log service
 - [ ] Rate limiting
 - [ ] Security headers
 - [ ] Backup/restore policy
