@@ -28,8 +28,23 @@ export async function POST(request: Request) {
       return jsonError("Valid startsAt and endsAt are required.");
     }
 
-    const sellerId = body.sellerId ? String(body.sellerId) : null;
-    const locationId = body.locationId ? String(body.locationId) : null;
+    let sellerId = body.sellerId ? String(body.sellerId) : null;
+    let locationId = body.locationId ? String(body.locationId) : null;
+
+    if (!sellerId && body.seller) {
+      const seller = await prisma.seller.findFirst({
+        where: { organizationId: organization.id, name: { equals: String(body.seller).trim(), mode: "insensitive" } },
+        select: { id: true },
+      });
+      sellerId = seller?.id ?? null;
+    }
+    if (!locationId && body.location) {
+      const location = await prisma.location.findFirst({
+        where: { organizationId: organization.id, name: { equals: String(body.location).trim(), mode: "insensitive" } },
+        select: { id: true },
+      });
+      locationId = location?.id ?? null;
+    }
 
     if (sellerId) {
       const seller = await prisma.seller.findFirst({ where: { id: sellerId, organizationId: organization.id } });
