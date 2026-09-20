@@ -119,7 +119,7 @@ export default function Page(){
       <button onClick={()=>switchMode("demo")} className={`rounded-lg px-3 py-2 text-xs font-bold ${mode==="demo"?"bg-violet-600 text-white":"text-slate-400"}`}>🎬 DEMO</button>
       <button onClick={()=>switchMode("work")} className={`rounded-lg px-3 py-2 text-xs font-bold ${mode==="work"?"bg-emerald-600 text-white":"text-slate-400"}`}>🛠 TYÖ</button>
      </div>
-     <button onClick={()=>mode==="work"&&setModal("booking")} className={`rounded-xl p-3 ${mode==="work"?"bg-[#2f6df6] hover:brightness-110":"bg-white/10 text-slate-400"}` hover:brightness-110" title={mode==="work"?"Uusi varaus":"Demo-tila"}><Plus size={21}/></button>
+     <button onClick={()=>mode==="work"&&setModal("booking")} className={`rounded-xl p-3 ${mode==="work"?"bg-[#2f6df6] hover:brightness-110":"bg-white/10 text-slate-400"}`} title={mode==="work"?"Uusi varaus":"Demo-tila"}><Plus size={21}/></button>
      <button onClick={()=>go("ai")} className="relative hidden rounded-xl border border-[#203451] bg-[#0d1a2c] p-3 sm:block" title="AI Action Center"><Bot size={20}/><span className="absolute -right-1 -top-1 rounded-full bg-red-500 px-1.5 text-[10px]">7</span></button>
      <button onClick={()=>go("settings")} className="grid h-11 w-11 place-items-center rounded-full bg-blue-600 font-bold" title="Asetukset">T</button>
     </div>
