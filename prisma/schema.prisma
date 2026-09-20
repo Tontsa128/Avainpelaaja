@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  BOOKER
+  MANAGER
+  SELLER
+  REPORTING
+}
+
+enum BookingStatus {
+  DRAFT
+  PENDING
+  CONFIRMED
+  CANCELLED
+  PROBLEM
+}
+
+enum LocationStatus {
+  AVAILABLE
+  ACTIVE
+  NEGOTIATION
+  PROBLEM
+  INACTIVE
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  locations Location[]
+  sellers   Seller[]
+  bookings  Booking[]
+  contacts  Contact[]
+  activities CrmActivity[]
+  sales     Sale[]
+}
+
+model User {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  email          String       @unique
+  role           UserRole
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Seller {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  phone          String?
+  email          String?
+  area           String?
+  active         Boolean      @default(true)
+  targetPerShift Int          @default(0)
+  bookings       Booking[]
+  timeEntries    TimeEntry[]
+  sales          Sale[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Location {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  city           String
+  address        String?
+  postalCode     String?
+  latitude       Float?
+  longitude      Float?
+  status         LocationStatus @default(AVAILABLE)
+  pricePerDay    Decimal?       @db.Decimal(10,2)
+  visitorCount   Int?
+  score          Decimal?       @db.Decimal(5,2)
+  contacts       Contact[]
+  bookings       Booking[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+model Contact {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  locationId     String?
+  location       Location?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  name           String
+  role           String?
+  phone          String?
+  email          String?
+  notes          String?
+  activities     CrmActivity[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Booking {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sellerId       String?
+  seller         Seller?       @relation(fields: [sellerId], references: [id], onDelete: SetNull)
+  locationId     String?
+  location       Location?     @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  startsAt       DateTime
+  endsAt         DateTime
+  status         BookingStatus @default(PENDING)
+  standSpot      String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([organizationId, startsAt])
+  @@index([sellerId, startsAt])
+  @@index([locationId, startsAt])
+}
+
+model TimeEntry {
+  id        String   @id @default(cuid())
+  sellerId  String
+  seller    Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  startedAt DateTime
+  endedAt   DateTime?
+  breakMin  Int      @default(0)
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([sellerId, startedAt])
+}
+
+model Sale {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sellerId       String
+  seller         Seller       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  locationName   String?
+  soldAt         DateTime     @default(now())
+  quantity       Int          @default(1)
+  campaign       String?
+  notes          String?
+
+  @@index([organizationId, soldAt])
+  @@index([sellerId, soldAt])
+}
+
+model CrmActivity {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contactId      String?
+  contact        Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  type           String
+  stage          String
+  subject        String
+  notes          String?
+  nextActionAt   DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, nextActionAt])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorUserId    String?
+  action         String
+  entityType     String
+  entityId       String?
+  oldValue       Json?
+  newValue       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+}
