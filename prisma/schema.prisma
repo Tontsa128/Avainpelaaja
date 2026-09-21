@@ -42,7 +42,7 @@ enum CrmStage {
   NOT_NOW
 }
 
-enum CrmActivityType {
+enum TimeEntryStatus {\n  OPEN\n  BREAK\n  CLOSED\n}\n\nenum CrmActivityType {
   CALL
   EMAIL
   NOTE
