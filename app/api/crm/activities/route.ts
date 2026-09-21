@@ -24,7 +24,7 @@ export async function GET(request: Request) {
       take: 200,
     });
 
-    return NextResponse.json(activities);
+    return NextResponse.json({ ok: true, data: activities });
   } catch (error) {
     return handleApiError(error);
   }
@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       newValue: activity,
     });
 
-    return NextResponse.json(activity, { status: 201 });
+    return NextResponse.json({ ok: true, data: activity }, { status: 201 });
   } catch (error) {
     return handleApiError(error);
   }
