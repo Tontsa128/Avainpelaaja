@@ -113,7 +113,6 @@ model Location {
   contacts       Contact[]
   bookings       Booking[]
   crmOpportunities CrmOpportunity[]
-  crmOpportunities CrmOpportunity[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 }
@@ -229,6 +228,7 @@ model CrmActivity {
   createdAt      DateTime     @default(now())
 
   @@index([organizationId, nextActionAt])
+  @@index([opportunityId, createdAt])
 }
 
 model AuditLog {
