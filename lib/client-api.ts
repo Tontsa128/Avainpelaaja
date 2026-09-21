@@ -39,7 +39,9 @@ export type ApiCrmOpportunity = {
 
 export type ApiTimeEntry = {
   id: string; sellerId: string; startedAt: string; endedAt?: string | null;
-  breakMin: number; notes?: string | null;
+  breakMin: number; status: "OPEN" | "BREAK" | "CLOSED"; notes?: string | null;
+  seller?: { id: string; name: string } | null;
+  location?: { id: string; name: string; city: string } | null;
 };
 
 export type ApiSale = { id: string; sellerId: string; soldAt: string; quantity: number; locationName?: string | null; campaign?: string | null; notes?: string | null; seller?: { id: string; name: string } | null; };\n\nexport type DashboardSummary = {
@@ -64,8 +66,12 @@ export const api = {
   timeEntries: (sellerId?: string) => request<ApiTimeEntry[]>(
     sellerId ? `/api/time-entries?sellerId=${encodeURIComponent(sellerId)}` : "/api/time-entries"
   ),
-  startShift: (sellerId: string, notes?: string) =>
-    request<ApiTimeEntry>("/api/time-entries", { method: "POST", body: JSON.stringify({ sellerId, action: "START", notes }) }),
+  startShift: (sellerId: string, locationId?: string, notes?: string) =>
+    request<ApiTimeEntry>("/api/time-entries", { method: "POST", body: JSON.stringify({ sellerId, locationId, action: "START", notes }) }),
+  breakShift: (sellerId: string) =>
+    request<ApiTimeEntry>("/api/time-entries", { method: "POST", body: JSON.stringify({ sellerId, action: "BREAK" }) }),
+  resumeShift: (sellerId: string) =>
+    request<ApiTimeEntry>("/api/time-entries", { method: "POST", body: JSON.stringify({ sellerId, action: "RESUME" }) }),
   endShift: (id: string, notes?: string) =>
     request<ApiTimeEntry>(`/api/time-entries/${id}`, { method: "PATCH", body: JSON.stringify({ action: "END", notes }) }),
   createSeller: (data: unknown) => request<ApiSeller>("/api/sellers", { method: "POST", body: JSON.stringify(data) }),
