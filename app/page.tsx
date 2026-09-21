@@ -327,7 +327,7 @@ function Hours({sellers,locations,mode,notify}:{sellers:Seller[];locations:Locat
  const start=async()=>{if(!sellerId){notify("Valitse myyjä ennen vuoron aloitusta");return;}try{await api.startShift(sellerId,locationId||undefined);await load();notify("Vuoro aloitettu");}catch(e){notify(e instanceof Error?e.message:"Vuoron aloitus epäonnistui");}};
  const pause=async()=>{if(!active)return;try{await api.breakShift(String(active.sellerId));await load();notify("Tauko aloitettu");}catch(e){notify(e instanceof Error?e.message:"Tauon aloitus epäonnistui");}};
  const resume=async()=>{if(!active)return;try{await api.resumeShift(String(active.sellerId));await load();notify("Vuoro jatkettu");}catch(e){notify(e instanceof Error?e.message:"Vuoron jatkaminen epäonnistui");}};
- const end=async()=>{if(!active)return;try{const breakMin=Number(prompt("Tauon kokonaismäärä minuutteina",String(active.breakMin||0))||0);await api.endShift(active.id);await load();notify("Vuoro lopetettu");}catch(e){notify(e instanceof Error?e.message:"Vuoron lopetus epäonnistui");}};
+ const end=async()=>{if(!active)return;try{const breakMin=Number(prompt("Tauon kokonaismäärä minuutteina",String(active.breakMin||0))||0);await api.endShift(active.id,breakMin);await load();notify("Vuoro lopetettu");}catch(e){notify(e instanceof Error?e.message:"Vuoron lopetus epäonnistui");}};
  if(mode==="work") return <Module title="Työajat" desc="Vuorot, tauot ja työajat tallennetaan PostgreSQL-tietokantaan.">
   <div className="mb-5 panel p-4">
    <div className="mb-3 font-bold">⏱ Uusi työvuoro</div>
