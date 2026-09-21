@@ -7,16 +7,44 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   try {
     const org = await requireOrganization(request);
     const { id } = await params;
-    const entry = await prisma.timeEntry.findFirst({ where: { id, seller: { organizationId: org.id } } });
+    const entry = await prisma.timeEntry.findFirst({
+      where: { id, seller: { organizationId: org.id } },
+      include: { seller: { select: { id: true, name: true } }, location: { select: { id: true, name: true, city: true } } },
+    });
     if (!entry) return jsonError("Time entry not found.", 404);
     if (entry.endedAt) return jsonError("Shift is already closed.", 409);
+
     const body = await request.json();
-    if (body.action !== "END") return jsonError("Only END is supported for now.");
+    const action = String(body.action ?? "END").toUpperCase();
+    if (action !== "END") return jsonError("Use the time-entries collection endpoint for BREAK/RESUME.");
+
+    const breakMin = body.breakMin == null ? entry.breakMin : Number(body.breakMin);
+    if (!Number.isInteger(breakMin) || breakMin < 0 || breakMin > 1440) {
+      return jsonError("breakMin must be an integer between 0 and 1440.");
+    }
+
     const updated = await prisma.timeEntry.update({
       where: { id },
-      data: { endedAt: new Date(), breakMin: body.breakMin == null ? entry.breakMin : Math.max(0, Number(body.breakMin)), notes: body.notes ? String(body.notes) : entry.notes },
+      data: {
+        endedAt: new Date(),
+        status: "CLOSED",
+        breakMin,
+        notes: body.notes == null ? entry.notes : String(body.notes),
+      },
+      include: { seller: { select: { id: true, name: true } }, location: { select: { id: true, name: true, city: true } } },
     });
-    await writeAudit({ organizationId: org.id, action: "END", entityType: "TIME_ENTRY", entityId: id, oldValue: entry, newValue: updated });
+
+    await writeAudit({
+      organizationId: org.id,
+      action: "END",
+      entityType: "TIME_ENTRY",
+      entityId: id,
+      oldValue: entry,
+      newValue: updated,
+    });
+
     return Response.json({ ok: true, data: updated });
-  } catch (error) { return handleApiError(error); }
+  } catch (error) {
+    return handleApiError(error);
+  }
 }
