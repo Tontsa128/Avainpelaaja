@@ -410,24 +410,30 @@ function Hours({sellers,locations,mode,notify}:{sellers:Seller[];locations:Locat
  const [loading,setLoading]=useState(false);
  const [sellerId,setSellerId]=useState("");
  const [locationId,setLocationId]=useState("");
+ const [breakMin,setBreakMin]=useState("0");
  const load=async()=>{if(mode==="demo"){setEntries([]);return;}setLoading(true);try{const r=await api.timeEntries();setEntries(r.data);}catch(e){notify(e instanceof Error?e.message:"Työaikoja ei voitu ladata");}finally{setLoading(false);}};
  useEffect(()=>{load();},[mode]);
- const active=entries.find(e=>!e.endedAt);
+ const activeForSelected=sellerId?entries.find(e=>String(e.sellerId)===String(sellerId)&&!e.endedAt):null;
  const start=async()=>{if(!sellerId){notify("Valitse myyjä ennen vuoron aloitusta");return;}try{await api.startShift(sellerId,locationId||undefined);await load();notify("Vuoro aloitettu");}catch(e){notify(e instanceof Error?e.message:"Vuoron aloitus epäonnistui");}};
- const pause=async()=>{if(!active)return;try{await api.breakShift(String(active.sellerId));await load();notify("Tauko aloitettu");}catch(e){notify(e instanceof Error?e.message:"Tauon aloitus epäonnistui");}};
- const resume=async()=>{if(!active)return;try{await api.resumeShift(String(active.sellerId));await load();notify("Vuoro jatkettu");}catch(e){notify(e instanceof Error?e.message:"Vuoron jatkaminen epäonnistui");}};
- const end=async()=>{if(!active)return;try{const breakMin=Number(prompt("Tauon kokonaismäärä minuutteina",String(active.breakMin||0))||0);await api.endShift(active.id,breakMin);await load();notify("Vuoro lopetettu");}catch(e){notify(e instanceof Error?e.message:"Vuoron lopetus epäonnistui");}};
- if(mode==="work") return <Module title="Työajat" desc="Vuorot, tauot ja työajat tallennetaan PostgreSQL-tietokantaan.">
+ const pause=async()=>{if(!activeForSelected)return;try{await api.breakShift(String(activeForSelected.sellerId));await load();notify("Tauko aloitettu");}catch(e){notify(e instanceof Error?e.message:"Tauon aloitus epäonnistui");}};
+ const resume=async()=>{if(!activeForSelected)return;try{await api.resumeShift(String(activeForSelected.sellerId));await load();notify("Vuoro jatkettu");}catch(e){notify(e instanceof Error?e.message:"Vuoron jatkaminen epäonnistui");}};
+ const end=async()=>{if(!activeForSelected)return;const minutes=Number(breakMin);if(!Number.isInteger(minutes)||minutes<0||minutes>1440){notify("Tauon määrän pitää olla 0–1440 minuuttia");return;}try{await api.endShift(activeForSelected.id,minutes);setBreakMin("0");await load();notify("Vuoro lopetettu");}catch(e){notify(e instanceof Error?e.message:"Vuoron lopetus epäonnistui");}};
+ const activeCount=entries.filter(e=>!e.endedAt).length;
+ if(mode==="work") return <Module title="Työajat" desc="Vuorot, tauot ja työajat tallennetaan PostgreSQL-tietokantaan. Useampi myyjä voi olla samanaikaisesti työvuorossa.">
   <div className="mb-5 panel p-4">
-   <div className="mb-3 font-bold">⏱ Uusi työvuoro</div>
-   <div className="grid gap-3 md:grid-cols-4">
+   <div className="mb-3 font-bold">⏱ Työvuoron hallinta</div>
+   <div className="grid gap-3 md:grid-cols-5">
     <select value={sellerId} onChange={e=>setSellerId(e.target.value)} className="input"><option value="">Valitse myyjä</option>{sellers.map(s=><option key={s.id} value={String(s.id)}>{s.name}</option>)}</select>
     <select value={locationId} onChange={e=>setLocationId(e.target.value)} className="input"><option value="">Kauppapaikka (valinnainen)</option>{locations.map(l=><option key={l.id} value={String(l.id)}>{l.name} · {l.city}</option>)}</select>
-    {!active?<button onClick={start} className="btn-primary justify-center">▶ Aloita vuoro</button>:active.status==="BREAK"?<button onClick={resume} className="btn-primary justify-center">▶ Jatka vuoroa</button>:<button onClick={pause} className="btn-secondary justify-center">⏸ Aloita tauko</button>}
-    {active?<button onClick={end} className="btn-secondary justify-center">⏹ Lopeta vuoro</button>:<div/>}
+    {activeForSelected?.status==="BREAK"?<button onClick={resume} className="btn-primary justify-center">▶ Jatka vuoroa</button>:activeForSelected?<button onClick={pause} className="btn-secondary justify-center">⏸ Aloita tauko</button>:<button onClick={start} className="btn-primary justify-center">▶ Aloita vuoro</button>}
+    <input type="number" min="0" max="1440" value={breakMin} onChange={e=>setBreakMin(e.target.value)} className="input" placeholder="Tauko, min"/>
+    <button onClick={end} disabled={!activeForSelected} className="btn-secondary justify-center disabled:cursor-not-allowed disabled:opacity-40">⏹ Lopeta vuoro</button>
    </div>
   </div>
-  <div className="mb-4 text-sm text-slate-400">{loading?"Ladataan...":active?(active.status==="BREAK"?"🟡 Tauolla":"🟢 Vuoro käynnissä"):"⚪ Ei aktiivista vuoroa"}</div>
+  <div className="mb-4 flex flex-wrap gap-3 text-sm text-slate-400">
+   <span>{loading?"Ladataan...":`🟢 Aktiivisia vuoroja: ${activeCount}`}</span>
+   {activeForSelected&&<span>{activeForSelected.status==="BREAK"?"🟡 Valittu myyjä on tauolla":"🟢 Valittu myyjä on työssä"}</span>}
+  </div>
   <Table headers={["Myyjä","Kauppapaikka","Aloitus","Lopetus","Tauko","Tila"]} rows={entries.map(e=>[e.seller?.name||sellers.find(s=>String(s.id)===String(e.sellerId))?.name||"Myyjä",e.location?e.location.name+" · "+e.location.city:"—",new Date(e.startedAt).toLocaleString("fi-FI"),e.endedAt?new Date(e.endedAt).toLocaleString("fi-FI"):"—",String(e.breakMin)+" min",e.status==="BREAK"?"🟡 Tauolla":e.status==="CLOSED"?"⚪ Päättynyt":"🟢 Käynnissä"])}/>
  </Module>;
  return <Module title="Työajat" desc="Vuorot, aloitukset, tauot, lopetukset ja poikkeamat."><Table headers={["Myyjä","Vuoro","Aloitus","Lopetus","Tunnit","Tila"]} rows={sellers.map(s=>[s.name,s.shift,"09:58","18:02","8,1 h",statusBadge(s.status)])}/></Module>;
