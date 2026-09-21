@@ -76,6 +76,7 @@ model User {
   active         Boolean      @default(true)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  crmOpportunities CrmOpportunity[]
 }
 
 model Seller {
