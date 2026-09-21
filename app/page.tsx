@@ -190,10 +190,83 @@ function Calendar({bookings,open,notify}:{bookings:Booking[];open:any;notify:(x:
 }
 
 function CRM({notify,mode}:{notify:(x:string)=>void;mode:AppMode}){
- const stages=["Uusi","Soitettava","Neuvottelu","Tarjous","Odottaa vastausta","Vahvistettu"];
- return <div className="grid gap-4 overflow-x-auto xl:grid-cols-6">{stages.map(stage=><div key={stage} className="min-w-[230px] rounded-2xl border border-[#203451] bg-[#0d1a2c] p-3"><div className="mb-3 font-bold text-sm">{stage}</div>{(mode==="demo"?crmSeed:[]).filter(x=>x.stage===stage).map(x=><div key={x.id} className="mb-2 rounded-xl border border-[#203451] bg-white/[.02] p-3 text-sm"><b>{x.location}</b><div className="text-xs text-slate-500">{x.contact}</div><div className="mt-2 text-xs text-blue-300">{x.next}</div><p className="mt-2 text-xs text-slate-400">{x.note}</p><button onClick={()=>notify(`CRM avattu: ${x.location}`)} className="mt-2 text-xs text-blue-400">Avaa →</button></div>)}</div>)}</div>
+ const stageDefs=[
+  ["NEW","Uusi"],["CALL","Soitettava"],["NEGOTIATION","Neuvottelu"],["OFFER_SENT","Tarjous"],
+  ["WAITING","Odottaa vastausta"],["AGREED","Vahvistettu"]
+ ] as const;
+ const [items,setItems]=useState<any[]>([]);
+ const [loading,setLoading]=useState(false);
+ const [newOpen,setNewOpen]=useState(false);
+ const [activityOpen,setActivityOpen]=useState<string|null>(null);
+ const [form,setForm]=useState({name:"",city:"",nextAction:"Soita",stage:"NEW",notes:""});
+ const [activity,setActivity]=useState({type:"CALL",subject:"Puhelu",notes:""});
+ const load=async()=>{
+  if(mode==="demo"){setItems([]);return;}
+  setLoading(true);
+  try{const res:any=await api.crmOpportunities();setItems(res.data||[]);}
+  catch(error){notify(error instanceof Error?error.message:"CRM-tietoja ei voitu ladata");}
+  finally{setLoading(false);}
+ };
+ useEffect(()=>{load();},[mode]);
+ const create=async()=>{
+  try{
+   if(!form.name.trim()||!form.nextAction.trim()){notify("Nimi ja seuraava toimenpide ovat pakollisia");return;}
+   const res:any=await api.createCrmOpportunity(form);
+   setItems(v=>[res.data,...v]);setNewOpen(false);
+   setForm({name:"",city:"",nextAction:"Soita",stage:"NEW",notes:""});
+   notify("CRM-kohde tallennettu");
+  }catch(error){notify(error instanceof Error?error.message:"CRM-kohteen tallennus epäonnistui");}
+ };
+ const move=async(id:string,stage:string)=>{
+  try{const res:any=await api.updateCrmOpportunity(id,{stage});setItems(v=>v.map(x=>x.id===id?res.data:x));notify("CRM-vaihe päivitetty");}
+  catch(error){notify(error instanceof Error?error.message:"Vaiheen päivitys epäonnistui");}
+ };
+ const addActivity=async(id:string,stage:string)=>{
+  try{
+   if(!activity.subject.trim()){notify("Aktiviteetin aihe puuttuu");return;}
+   await api.createCrmActivity({opportunityId:id,stage,type:activity.type,subject:activity.subject,notes:activity.notes});
+   setActivityOpen(null);setActivity({type:"CALL",subject:"Puhelu",notes:""});notify("CRM-aktiviteetti tallennettu");
+  }catch(error){notify(error instanceof Error?error.message:"Aktiviteetin tallennus epäonnistui");}
+ };
+ const demoCards=crmSeed.map(x=>({id:String(x.id),name:x.location,contact:x.contact,nextAction:x.next,notes:x.note,stage:stageDefs.find(s=>s[1]===x.stage)?.[0]||"NEW"}));
+ const cards=mode==="demo"?demoCards:items;
+ return <div className="space-y-4">
+  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+   <div className="text-sm text-slate-400">{mode==="demo"?"Demo näyttää CRM-putken rakenteen.":"Työtilan CRM tallentuu PostgreSQL-tietokantaan API:n kautta."}</div>
+   {mode==="work"&&<button onClick={()=>setNewOpen(v=>!v)} className="btn-primary"><Plus size={17}/> Uusi CRM-kohde</button>}
+  </div>
+  {mode==="work"&&loading?<EmptyState text="Ladataan CRM-tietoja..."/>:
+   <div className="grid gap-3 overflow-x-auto xl:grid-cols-6">{stageDefs.map(([stage,label])=><div key={stage} className="min-w-[245px] rounded-2xl border border-[#203451] bg-[#0d1a2c] p-3">
+    <div className="mb-3 flex items-center justify-between"><div className="font-bold text-sm">{label}</div><span className="rounded-full bg-white/5 px-2 py-1 text-xs text-slate-400">{cards.filter(x=>x.stage===stage).length}</span></div>
+    <div className="space-y-2">{cards.filter(x=>x.stage===stage).map(x=><div key={x.id} className="rounded-xl border border-[#203451] bg-white/[.02] p-3 text-sm">
+     <b>{x.name}</b><div className="text-xs text-slate-500">{x.city||x.contact||"Ei lisätietoa"}</div>
+     <div className="mt-2 text-xs text-blue-300">→ {x.nextAction}</div>
+     {x.notes&&<p className="mt-2 text-xs text-slate-400">{x.notes}</p>}
+     {mode==="work"&&<div className="mt-3 flex flex-wrap gap-2">
+      <button onClick={()=>setActivityOpen(activityOpen===x.id?null:x.id)} className="rounded-lg border border-[#304968] px-2 py-1 text-xs">📞 Aktiviteetti</button>
+      {stage!=="AGREED"&&<button onClick={()=>move(x.id,stageDefs[Math.min(stageDefs.findIndex(s=>s[0]===stage)+1,stageDefs.length-1)][0])} className="rounded-lg bg-blue-600/20 px-2 py-1 text-xs text-blue-200">Seuraava →</button>}
+     </div>}
+     {activityOpen===x.id&&<div className="mt-3 rounded-xl border border-violet-500/20 bg-violet-950/10 p-3">
+      <select value={activity.type} onChange={e=>setActivity({...activity,type:e.target.value})} className="w-full rounded-lg border border-[#304968] bg-[#0d1a2c] p-2 text-xs"><option value="CALL">Puhelu</option><option value="EMAIL">Sähköposti</option><option value="NOTE">Muistiinpano</option><option value="MEETING">Tapaaminen</option><option value="OFFER">Tarjous</option></select>
+      <input value={activity.subject} onChange={e=>setActivity({...activity,subject:e.target.value})} className="mt-2 w-full rounded-lg border border-[#304968] bg-[#0d1a2c] p-2 text-xs" placeholder="Aihe"/>
+      <textarea value={activity.notes} onChange={e=>setActivity({...activity,notes:e.target.value})} className="mt-2 w-full rounded-lg border border-[#304968] bg-[#0d1a2c] p-2 text-xs" placeholder="Muistiinpanot"/>
+      <button onClick={()=>addActivity(x.id,stage)} className="btn-primary mt-2 w-full justify-center">Tallenna aktiviteetti</button>
+     </div>}
+    </div>)}</div>
+   </div>)}</div>
+  {mode==="work"&&newOpen&&<div className="panel p-4">
+   <div className="mb-3 font-bold">Uusi CRM-kohde</div>
+   <div className="grid gap-3 md:grid-cols-2">
+    <input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="Kauppapaikka / yritys" className="input"/>
+    <input value={form.city} onChange={e=>setForm({...form,city:e.target.value})} placeholder="Kaupunki" className="input"/>
+    <select value={form.stage} onChange={e=>setForm({...form,stage:e.target.value})} className="input">{stageDefs.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select>
+    <input value={form.nextAction} onChange={e=>setForm({...form,nextAction:e.target.value})} placeholder="Seuraava toimenpide" className="input"/>
+    <textarea value={form.notes} onChange={e=>setForm({...form,notes:e.target.value})} placeholder="Muistiinpanot" className="input md:col-span-2"/>
+   </div>
+   <div className="mt-3 flex gap-2"><button onClick={create} className="btn-primary">Tallenna CRM</button><button onClick={()=>setNewOpen(false)} className="btn-secondary">Peruuta</button></div>
+  </div>}
+ </div>;
 }
-
 function Sellers({data,open}:{data:Seller[];open:any}){return <Module title="Myyjät" desc="Myyjät, tiimit, työvuorot, työajat ja tulokset." action={<button onClick={()=>open("seller")} className="btn-primary"><Plus size={17}/> Uusi myyjä</button>}><Table headers={["Myyjä","Alue","Vuoro","Tavoite","Kaupat","Status"]} rows={data.map(s=>[s.name,s.area,s.shift,String(s.target),String(s.sales),statusBadge(s.status)])}/></Module>}
 function Locations({data,open}:{data:Location[];open:any}){return <Module title="Kauppapaikat" desc="Kauppapaikkarekisteri, hinnat, kontaktit, sopimukset ja historia." action={<button onClick={()=>open("location")} className="btn-primary"><Plus size={17}/> Uusi kauppapaikka</button>}><Table headers={["Kauppapaikka","Kaupunki","Status","Hinta/pv","Hist. profiili","Yhteyshenkilö"]} rows={data.map(l=>[l.name,l.city,statusBadge(l.status),l.price+" €",l.score?l.score.toFixed(1):"—",l.contact])}/></Module>}
 function MapView({locations,go}:{locations:Location[];go:(p:Page)=>void}){return <Module title="Kartta" desc="Suomen ständipaikat ja niiden operatiivinen tila."><div className="relative h-[540px] overflow-hidden rounded-2xl border border-[#203451] bg-[#10243a]"><div className="absolute inset-0 opacity-20" style={{backgroundImage:"linear-gradient(#8aa4c4 1px,transparent 1px),linear-gradient(90deg,#8aa4c4 1px,transparent 1px)",backgroundSize:"44px 44px"}}/><div className="absolute left-[42%] top-[42%] h-[180px] w-[100px] rounded-[50%] border-2 border-slate-400/30 rotate-12"/>{locations.map((l,i)=><button key={l.id} onClick={()=>go("locations")} className={`absolute rounded-full px-3 py-2 text-xs font-bold text-black shadow-lg ${l.status==="Vapaa"?"bg-emerald-400":l.status==="Aktiivinen"?"bg-blue-400":l.status==="Neuvottelu"?"bg-yellow-300":"bg-red-400"}`} style={{left:`${12+(i*13)%72}%`,top:`${18+(i*17)%60}%`}}>{l.status==="Vapaa"?"🟢":l.status==="Aktiivinen"?"🔵":l.status==="Neuvottelu"?"🟡":"🔴"} {l.city}</button>)}<div className="absolute bottom-4 left-4 rounded-xl border border-[#203451] bg-[#07111f]/95 p-3 text-xs">🟢 Vapaa · 🔵 Aktiivinen · 🟡 Neuvottelu · 🔴 Ongelma</div></div></Module>}
