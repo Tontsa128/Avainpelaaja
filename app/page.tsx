@@ -154,8 +154,8 @@ export default function Page(){
     {page==="sellers"&&<Sellers data={filteredSellers} open={setModal}/>}
     {page==="locations"&&<Locations data={filteredLocations} open={setModal}/>}
     {page==="map"&&<MapView locations={demoLocations} go={go}/>}
-    {page==="sales"&&<Sales sellers={demoSellers}/>}
-    {page==="hours"&&<Hours sellers={demoSellers} mode={mode} notify={notify}/>} 
+    {page==="sales"&&<Sales sellers={demoSellers} mode={mode} notify={notify}/>}
+    {page==="hours"&&<Hours sellers={demoSellers} locations={demoLocations} mode={mode} notify={notify}/>} 
     {page==="reports"&&<Reports go={go}/>}
     {page==="ai"&&<AI go={go} notify={notify}/>}
     {page==="documents"&&<Documents notify={notify}/>}
