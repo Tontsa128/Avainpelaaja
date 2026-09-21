@@ -42,7 +42,13 @@ enum CrmStage {
   NOT_NOW
 }
 
-enum TimeEntryStatus {\n  OPEN\n  BREAK\n  CLOSED\n}\n\nenum CrmActivityType {
+enum TimeEntryStatus {
+  OPEN
+  BREAK
+  CLOSED
+}
+
+enum CrmActivityType {
   CALL
   EMAIL
   NOTE
@@ -156,16 +162,20 @@ model Booking {
 }
 
 model TimeEntry {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   sellerId  String
-  seller    Seller   @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  seller    Seller          @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  locationId String?
+  location   Location?      @relation(fields: [locationId], references: [id], onDelete: SetNull)
   startedAt DateTime
   endedAt   DateTime?
-  breakMin  Int      @default(0)
+  breakMin  Int             @default(0)
+  status    TimeEntryStatus @default(OPEN)
   notes     String?
-  createdAt DateTime @default(now())
+  createdAt DateTime        @default(now())
 
   @@index([sellerId, startedAt])
+  @@index([locationId, startedAt])
 }
 
 model Sale {
