@@ -31,6 +31,26 @@ enum LocationStatus {
   INACTIVE
 }
 
+enum CrmStage {
+  NEW
+  CALL
+  NEGOTIATION
+  OFFER_SENT
+  AGREED
+  WAITING
+  FOLLOW_UP
+  NOT_NOW
+}
+
+enum CrmActivityType {
+  CALL
+  EMAIL
+  NOTE
+  MEETING
+  OFFER
+  STATUS_CHANGE
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -91,6 +111,7 @@ model Location {
   score          Decimal?       @db.Decimal(5,2)
   contacts       Contact[]
   bookings       Booking[]
+  crmOpportunities CrmOpportunity[]
   crmOpportunities CrmOpportunity[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -163,14 +184,44 @@ model Sale {
   @@index([sellerId, soldAt])
 }
 
+model CrmOpportunity {
+  id                String       @id @default(cuid())
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  locationId        String?
+  location          Location?    @relation(fields: [locationId], references: [id], onDelete: SetNull)
+  contactId         String?
+  contact           Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  responsibleUserId String?
+  responsibleUser   User?        @relation(fields: [responsibleUserId], references: [id], onDelete: SetNull)
+  name              String
+  city              String?
+  stage             CrmStage     @default(NEW)
+  nextAction        String
+  nextActionAt      DateTime?
+  footfall          Int?
+  dailyRate         Decimal?     @db.Decimal(10,2)
+  notes             String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  activities        CrmActivity[]
+
+  @@index([organizationId, stage])
+  @@index([organizationId, nextActionAt])
+  @@index([responsibleUserId, stage])
+}
+
 model CrmActivity {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   contactId      String?
   contact        Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  type           String
-  stage          String
+  opportunityId  String?
+  opportunity    CrmOpportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  type           CrmActivityType
+  stage          CrmStage
   subject        String
   notes          String?
   nextActionAt   DateTime?
