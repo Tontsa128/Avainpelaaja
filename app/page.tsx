@@ -276,7 +276,46 @@ function CRM({notify,mode}:{notify:(x:string)=>void;mode:AppMode}){
 function Sellers({data,open}:{data:Seller[];open:any}){return <Module title="Myyjät" desc="Myyjät, tiimit, työvuorot, työajat ja tulokset." action={<button onClick={()=>open("seller")} className="btn-primary"><Plus size={17}/> Uusi myyjä</button>}><Table headers={["Myyjä","Alue","Vuoro","Tavoite","Kaupat","Status"]} rows={data.map(s=>[s.name,s.area,s.shift,String(s.target),String(s.sales),statusBadge(s.status)])}/></Module>}
 function Locations({data,open}:{data:Location[];open:any}){return <Module title="Kauppapaikat" desc="Kauppapaikkarekisteri, hinnat, kontaktit, sopimukset ja historia." action={<button onClick={()=>open("location")} className="btn-primary"><Plus size={17}/> Uusi kauppapaikka</button>}><Table headers={["Kauppapaikka","Kaupunki","Status","Hinta/pv","Hist. profiili","Yhteyshenkilö"]} rows={data.map(l=>[l.name,l.city,statusBadge(l.status),l.price+" €",l.score?l.score.toFixed(1):"—",l.contact])}/></Module>}
 function MapView({locations,go}:{locations:Location[];go:(p:Page)=>void}){return <Module title="Kartta" desc="Suomen ständipaikat ja niiden operatiivinen tila."><div className="relative h-[540px] overflow-hidden rounded-2xl border border-[#203451] bg-[#10243a]"><div className="absolute inset-0 opacity-20" style={{backgroundImage:"linear-gradient(#8aa4c4 1px,transparent 1px),linear-gradient(90deg,#8aa4c4 1px,transparent 1px)",backgroundSize:"44px 44px"}}/><div className="absolute left-[42%] top-[42%] h-[180px] w-[100px] rounded-[50%] border-2 border-slate-400/30 rotate-12"/>{locations.map((l,i)=><button key={l.id} onClick={()=>go("locations")} className={`absolute rounded-full px-3 py-2 text-xs font-bold text-black shadow-lg ${l.status==="Vapaa"?"bg-emerald-400":l.status==="Aktiivinen"?"bg-blue-400":l.status==="Neuvottelu"?"bg-yellow-300":"bg-red-400"}`} style={{left:`${12+(i*13)%72}%`,top:`${18+(i*17)%60}%`}}>{l.status==="Vapaa"?"🟢":l.status==="Aktiivinen"?"🔵":l.status==="Neuvottelu"?"🟡":"🔴"} {l.city}</button>)}<div className="absolute bottom-4 left-4 rounded-xl border border-[#203451] bg-[#07111f]/95 p-3 text-xs">🟢 Vapaa · 🔵 Aktiivinen · 🟡 Neuvottelu · 🔴 Ongelma</div></div></Module>}
-function Sales({sellers}:{sellers:Seller[]}){const total=sellers.reduce((a,s)=>a+s.sales,0);const target=sellers.reduce((a,s)=>a+s.target,0);return <Module title="Myynti & tavoitteet" desc="Kaupat, tavoitteet, myynti/tunti ja kehitystrendit."><div className="grid gap-4 md:grid-cols-3"><Stat label="Kaupat" value={String(total+160)}/><Stat label="Tavoite" value={String(target+190)}/><Stat label="Toteuma" value="88,6 %"/></div><div className="mt-5 panel p-5"><h3 className="font-bold">Myyjät suhteessa tavoitteeseen</h3><div className="mt-4 space-y-3">{sellers.map(s=><div key={s.id}><div className="mb-1 flex justify-between text-sm"><span>{s.name}</span><span>{s.sales}/{s.target}</span></div><div className="h-2 rounded-full bg-slate-800"><div className={`h-2 rounded-full ${s.sales>=s.target?"bg-emerald-500":"bg-blue-500"}`} style={{width:`${Math.min(100,s.sales/s.target*100)}%`}}/></div></div>)}</div></div></Module>}
+function Sales({sellers,mode,notify}:{sellers:Seller[];mode:AppMode;notify:(x:string)=>void}){
+ const [sales,setSales]=useState<any[]>([]);
+ const [loading,setLoading]=useState(false);
+ const [sellerId,setSellerId]=useState("");
+ const [quantity,setQuantity]=useState("1");
+ const [locationName,setLocationName]=useState("");
+ const load=async()=>{
+  if(mode==="demo"){setSales([]);return;}
+  setLoading(true);
+  try{const r=await api.sales();setSales(r.data||[]);}
+  catch(e){notify(e instanceof Error?e.message:"Myyntitietoja ei voitu ladata");}
+  finally{setLoading(false);}
+ };
+ useEffect(()=>{load();},[mode]);
+ const total=mode==="demo"?sellers.reduce((a,s)=>a+s.sales,0)+160:sales.reduce((a,s)=>a+Number(s.quantity||0),0);
+ const target=mode==="demo"?sellers.reduce((a,s)=>a+s.target,0)+190:sellers.reduce((a,s)=>a+s.target,0);
+ const addSale=async()=>{
+  if(mode!=="work") return;
+  if(!sellerId){notify("Valitse myyjä");return;}
+  try{
+   await api.createSale({sellerId,quantity:Number(quantity),locationName});
+   setQuantity("1");setLocationName("");await load();notify("Myynti tallennettu");
+  }catch(e){notify(e instanceof Error?e.message:"Myynnin tallennus epäonnistui");}
+ };
+ const sellerTotals=sellers.map(s=>({...s,sales:mode==="demo"?s.sales:(sales.filter(x=>String(x.sellerId)===String(s.id)).reduce((a,x)=>a+Number(x.quantity||0),0))}));
+ return <Module title="Myynti & tavoitteet" desc={mode==="demo"?"Demo näyttää myyntinäkymän rakenteen.":"Myynnit tallennetaan PostgreSQL-tietokantaan ja audit-logiin."}>
+  {mode==="work"&&<div className="mb-5 panel p-4">
+   <div className="mb-3 font-bold">➕ Kirjaa myynti</div>
+   <div className="grid gap-3 md:grid-cols-4">
+    <select value={sellerId} onChange={e=>setSellerId(e.target.value)} className="input"><option value="">Valitse myyjä</option>{sellers.map(s=><option key={s.id} value={String(s.id)}>{s.name}</option>)}</select>
+    <input type="number" min="1" max="100" value={quantity} onChange={e=>setQuantity(e.target.value)} className="input" placeholder="Kauppojen määrä"/>
+    <input value={locationName} onChange={e=>setLocationName(e.target.value)} className="input" placeholder="Kauppapaikka (valinnainen)"/>
+    <button onClick={addSale} disabled={loading} className="btn-primary justify-center">{loading?"Tallennetaan...":"Tallenna myynti"}</button>
+   </div>
+  </div>}
+  <div className="grid gap-4 md:grid-cols-3"><Stat label="Kaupat" value={String(total)}/><Stat label="Tavoite" value={String(target)}/><Stat label="Toteuma" value={target>0?((total/target)*100).toFixed(1).replace(".",",")+" %":"—"}/></div>
+  <div className="mt-5 panel p-5"><h3 className="font-bold">Myyjät suhteessa tavoitteeseen</h3><div className="mt-4 space-y-3">{sellerTotals.length===0?<EmptyState text="Ei vielä myyjiä."/>:sellerTotals.map(s=><div key={s.id}><div className="mb-1 flex justify-between text-sm"><span>{s.name}</span><span>{s.sales}/{s.target}</span></div><div className="h-2 rounded-full bg-slate-800"><div className={`h-2 rounded-full ${s.sales>=s.target?"bg-emerald-500":"bg-blue-500"}`} style={{width:`${s.target>0?Math.min(100,s.sales/s.target*100):0}%`}}/></div></div>)}</div></div>
+  {mode==="work"&&sales.length>0&&<div className="mt-5"><Table headers={["Myyjä","Määrä","Kauppapaikka","Aika"]} rows={sales.slice(0,20).map(s=>[s.seller?.name||sellers.find(x=>String(x.id)===String(s.sellerId))?.name||"Myyjä",String(s.quantity),s.locationName||"—",new Date(s.soldAt).toLocaleString("fi-FI")])}/></div>}
+ </Module>;
+}
 function Hours({sellers,mode,notify}:{sellers:Seller[];mode:AppMode;notify:(x:string)=>void}){
  const [entries,setEntries]=useState<any[]>([]);
  const [loading,setLoading]=useState(false);
