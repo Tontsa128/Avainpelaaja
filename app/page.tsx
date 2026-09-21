@@ -95,8 +95,8 @@ export default function Page(){
 
 
  const title=NAV.find(x=>x.id===page)?.label??"Dashboard";
- const filteredSellers=useMemo(()=>demoSellers.filter(s=>`${s.name} ${s.area}`.toLowerCase().includes(search.toLowerCase())),[sellers,search]);
- const filteredLocations=useMemo(()=>demoLocations.filter(l=>`${l.name} ${l.city} ${l.contact}`.toLowerCase().includes(search.toLowerCase())),[locations,search]);
+ const filteredSellers=useMemo(()=>demoSellers.filter(s=>`${s.name} ${s.area}`.toLowerCase().includes(search.toLowerCase())),[demoSellers,search]);
+ const filteredLocations=useMemo(()=>demoLocations.filter(l=>`${l.name} ${l.city} ${l.contact}`.toLowerCase().includes(search.toLowerCase())),[demoLocations,search]);
 
  function switchMode(next:AppMode){
   setMode(next);
@@ -147,14 +147,15 @@ export default function Page(){
      <button onClick={()=>mode==="work"&&setModal("booking")} className={`flex items-center justify-center gap-2 rounded-xl px-5 py-3 font-semibold ${mode==="work"?"bg-[#2f6df6]":"bg-violet-600"}`}>{mode==="work"?<><Plus size={18}/> Uusi varaus</>:<>🎬 Demo käynnissä</>}</button>
     </div>
 
-    {page==="dashboard"&&<Dashboard go={go} open={setModal} sellers={demoSellers} bookings={demoBookings} mode={mode}/>}
+    {page==="dashboard"&&<Dashboard go={go} open={setModal} sellers={demoSellers} bookings={demoBookings} mode={mode} notify={notify}/>}
+
     {page==="calendar"&&<Calendar bookings={demoBookings} open={setModal} notify={notify}/>}
     {page==="crm"&&<CRM notify={notify} mode={mode}/>}
     {page==="sellers"&&<Sellers data={filteredSellers} open={setModal}/>}
     {page==="locations"&&<Locations data={filteredLocations} open={setModal}/>}
     {page==="map"&&<MapView locations={demoLocations} go={go}/>}
     {page==="sales"&&<Sales sellers={demoSellers}/>}
-    {page==="hours"&&<Hours sellers={demoSellers}/>}
+    {page==="hours"&&<Hours sellers={demoSellers} mode={mode} notify={notify}/>} 
     {page==="reports"&&<Reports go={go}/>}
     {page==="ai"&&<AI go={go} notify={notify}/>}
     {page==="documents"&&<Documents notify={notify}/>}
@@ -167,24 +168,29 @@ export default function Page(){
  </div>
 }
 
-function Dashboard({go,open,sellers,bookings,mode}:{go:(p:Page)=>void;open:any;sellers:Seller[];bookings:Booking[];mode:AppMode}){
- const totalSales=sellers.reduce((a,s)=>a+s.sales,0);
+function Dashboard({go,open,sellers,bookings,mode,notify}:{go:(p:Page)=>void;open:any;sellers:Seller[];bookings:Booking[];mode:AppMode;notify:(x:string)=>void}){
+ const [summary,setSummary]=useState<any>(null);
+ useEffect(()=>{if(mode!=="work"){setSummary(null);return;} api.dashboardSummary().then(r=>setSummary(r.data)).catch(()=>setSummary(null));},[mode]);
+ const totalSales=mode==="work"&&summary?summary.sales:sellers.reduce((a,s)=>a+s.sales,0);
+ const sellerCount=mode==="work"&&summary?summary.sellers:sellers.length;
+ const activeCount=mode==="work"&&summary?summary.activeSellers:sellers.filter(s=>s.status==="Työssä").length;
+ const bookingCount=mode==="work"&&summary?summary.bookings:bookings.length;
+ const openCrm=mode==="work"&&summary?summary.openCrm:0;
  return <div className="space-y-6">
   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-   <Kpi icon="👥" label="Myyjiä yhteensä" value={mode==="demo"?"40":String(sellers.length)} sub="aktiiviset myyjät" onClick={()=>go("sellers")}/>
-   <Kpi icon="🟢" label="Työssä" value={String(sellers.filter(s=>s.status==="Työssä").length)} sub="tämän päivän vuoroissa" onClick={()=>go("hours")}/>
-   <Kpi icon="🔵" label="Varaukset" value={String(bookings.length)} sub="vahvistettua / aktiivista" onClick={()=>go("calendar")}/>
-   <Kpi icon="📱" label="Kaupat" value={mode==="demo"?String(totalSales+160):String(totalSales)} sub="nykyinen raportointijakso" onClick={()=>go("sales")} trend="↑ 12 %"/>
-   <Kpi icon="⚠️" label="Toimenpiteet" value={mode==="demo"?"7":"0"} sub="2 kiireellistä" onClick={()=>go("ai")}/>
+   <Kpi icon="👥" label="Myyjiä yhteensä" value={mode==="demo"?"40":String(sellerCount)} sub={mode==="demo"?"aktiiviset myyjät":String(summary?.activeSellers??activeCount)+" aktiivista"} onClick={()=>go("sellers")}/>
+   <Kpi icon="🟢" label="Työssä" value={mode==="demo"?String(sellers.filter(s=>s.status==="Työssä").length):String(activeCount)} sub="aktiiviset myyjät" onClick={()=>go("hours")}/>
+   <Kpi icon="🔵" label="Varaukset" value={String(bookingCount)} sub={mode==="demo"?"vahvistettua / aktiivista":String(summary?.confirmedBookings??0)+" vahvistettua"} onClick={()=>go("calendar")}/>
+   <Kpi icon="📱" label="Kaupat" value={mode==="demo"?String(totalSales+160):String(totalSales)} sub="nykyinen raportointijakso" onClick={()=>go("sales")} trend={mode==="demo"?"↑ 12 %":undefined}/>
+   <Kpi icon="⚠️" label="Avoimet CRM:t" value={mode==="demo"?"7":String(openCrm)} sub={mode==="demo"?"2 kiireellistä":"seurattavat kohteet"} onClick={()=>go("crm")}/>
   </div>
   <div className="grid gap-5 xl:grid-cols-3">
-   <section className="xl:col-span-2 panel p-5"><div className="mb-4 flex items-center justify-between"><h2 className="section-title">Tämän päivän työvuorot</h2><button onClick={()=>go("calendar")} className="text-sm text-blue-400">Avaa kalenteri →</button></div><div className="space-y-2">{sellers.length===0?<EmptyState text="Ei vielä myyjiä. Lisää ensimmäinen myyjä työtilassa."/>:sellers.slice(0,5).map(s=><div key={s.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-xl border border-[#203451] bg-white/[.02] p-3"><div><b>{s.name}</b><div className="text-xs text-slate-500">{s.area} · {s.shift}</div></div><div className="text-sm">{statusBadge(s.status)}</div><div className="text-right"><b>{s.sales}</b><div className="text-xs text-slate-500">/ {s.target} kauppaa</div></div></div>)}</div></section>
-   <section className="rounded-2xl border border-violet-500/30 bg-violet-950/10 p-5"><div className="mb-4 flex items-center gap-2 text-violet-200"><Bot size={19}/><h2 className="font-bold">AI Action Center</h2></div><div className="space-y-3">{(mode==="demo"?["2 kiireellistä CRM-tehtävää","Jyväskylässä 2 täyttämätöntä tarvetta","1 sopimus päättyy 7 päivän sisällä"]:["Ei vielä avoimia AI-toimenpiteitä","Kun dataa lisätään, AI alkaa ehdottaa tehtäviä","Kaikki muutokset hyväksytään käyttäjän toimesta"]).map(x=><div key={x} className="rounded-xl border border-violet-500/20 p-3 text-sm">🟣 {x}</div>)}</div><button onClick={()=>go("ai")} className="mt-5 w-full rounded-xl border border-violet-500/30 py-3 text-violet-200">Avaa AI-keskus</button></section>
+   <section className="xl:col-span-2 panel p-5"><div className="mb-4 flex items-center justify-between"><h2 className="section-title">Tämän päivän työvuorot</h2><button onClick={()=>go("calendar")} className="text-sm text-blue-400">Avaa kalenteri →</button></div><div className="space-y-2">{sellers.length===0?<EmptyState text={mode==="work"?"Ei vielä myyjiä. Lisää ensimmäinen myyjä työtilassa.":"Ei demo-myöjiä."}/>:sellers.slice(0,5).map(s=><div key={s.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 rounded-xl border border-[#203451] bg-white/[.02] p-3"><div><b>{s.name}</b><div className="text-xs text-slate-500">{s.area} · {s.shift}</div></div><div className="text-sm">{statusBadge(s.status)}</div><div className="text-right"><b>{s.sales}</b><div className="text-xs text-slate-500">/ {s.target} kauppaa</div></div></div>)}</div></section>
+   <section className="rounded-2xl border border-violet-500/30 bg-violet-950/10 p-5"><div className="mb-4 flex items-center gap-2 text-violet-200"><Bot size={19}/><h2 className="font-bold">AI Action Center</h2></div><div className="space-y-3">{(mode==="demo"?["2 kiireellistä CRM-tehtävää","Jyväskylässä 2 täyttämätöntä tarvetta","1 sopimus päättyy 7 päivän sisällä"]:[openCrm+" avointa CRM-toimenpidettä","Dashboardin luvut tulevat PostgreSQL-datasta","AI-ehdotukset rakennetaan hyväksyttäväksi ennen muutoksia"]).map(x=><div key={x} className="rounded-xl border border-violet-500/20 p-3 text-sm">🟣 {x}</div>)}</div><button onClick={()=>go("ai")} className="mt-5 w-full rounded-xl border border-violet-500/30 py-3 text-violet-200">Avaa AI-keskus</button></section>
   </div>
   <section className="panel p-5"><h2 className="section-title mb-4">Nopeat toiminnot</h2><div className="grid gap-3 sm:grid-cols-3"><Quick icon={<Plus/>} text="Uusi varaus" onClick={()=>open("booking")}/><Quick icon={<UserPlus/>} text="Uusi myyjä" onClick={()=>open("seller")}/><Quick icon={<Building2/>} text="Uusi kauppapaikka" onClick={()=>open("location")}/></div></section>
  </div>
 }
-
 function Calendar({bookings,open,notify}:{bookings:Booking[];open:any;notify:(x:string)=>void}){
  return <div className="space-y-5"><div className="flex flex-wrap gap-2"><button onClick={()=>open("booking")} className="btn-primary"><Plus size={17}/> Uusi varaus</button><button onClick={()=>notify("Viikkonäkymä valittu")} className="btn-secondary">Viikko</button><button onClick={()=>notify("Päivänäkymä valittu")} className="btn-secondary">Päivä</button><button onClick={()=>notify("Kuukausinäkymä valittu")} className="btn-secondary">Kuukausi</button></div><div className="grid gap-3 md:grid-cols-7">{["Ma 21.9.","Ti 22.9.","Ke 23.9.","To 24.9.","Pe 25.9.","La 26.9.","Su 27.9."].map((d,i)=><div key={d} className="min-h-52 rounded-2xl border border-[#203451] bg-[#0d1a2c] p-3"><div className="mb-3 font-semibold">{d}</div><div className="space-y-2">{bookings.slice(i%2,i%2+2).map(b=><button onClick={()=>notify(`Varaus: ${b.seller} / ${b.location}`)} key={b.id} className={`w-full rounded-xl border p-2 text-left text-xs ${b.status==="Ongelma"?"border-red-500/30 bg-red-500/10":b.status==="Odottaa"?"border-yellow-500/30 bg-yellow-500/10":"border-blue-500/30 bg-blue-500/10"}`}><b>{b.time}</b><br/>{b.seller}<br/><span className="text-slate-400">{b.location}</span></button>)}</div></div>)}</div></div>
 }
@@ -271,7 +277,17 @@ function Sellers({data,open}:{data:Seller[];open:any}){return <Module title="Myy
 function Locations({data,open}:{data:Location[];open:any}){return <Module title="Kauppapaikat" desc="Kauppapaikkarekisteri, hinnat, kontaktit, sopimukset ja historia." action={<button onClick={()=>open("location")} className="btn-primary"><Plus size={17}/> Uusi kauppapaikka</button>}><Table headers={["Kauppapaikka","Kaupunki","Status","Hinta/pv","Hist. profiili","Yhteyshenkilö"]} rows={data.map(l=>[l.name,l.city,statusBadge(l.status),l.price+" €",l.score?l.score.toFixed(1):"—",l.contact])}/></Module>}
 function MapView({locations,go}:{locations:Location[];go:(p:Page)=>void}){return <Module title="Kartta" desc="Suomen ständipaikat ja niiden operatiivinen tila."><div className="relative h-[540px] overflow-hidden rounded-2xl border border-[#203451] bg-[#10243a]"><div className="absolute inset-0 opacity-20" style={{backgroundImage:"linear-gradient(#8aa4c4 1px,transparent 1px),linear-gradient(90deg,#8aa4c4 1px,transparent 1px)",backgroundSize:"44px 44px"}}/><div className="absolute left-[42%] top-[42%] h-[180px] w-[100px] rounded-[50%] border-2 border-slate-400/30 rotate-12"/>{locations.map((l,i)=><button key={l.id} onClick={()=>go("locations")} className={`absolute rounded-full px-3 py-2 text-xs font-bold text-black shadow-lg ${l.status==="Vapaa"?"bg-emerald-400":l.status==="Aktiivinen"?"bg-blue-400":l.status==="Neuvottelu"?"bg-yellow-300":"bg-red-400"}`} style={{left:`${12+(i*13)%72}%`,top:`${18+(i*17)%60}%`}}>{l.status==="Vapaa"?"🟢":l.status==="Aktiivinen"?"🔵":l.status==="Neuvottelu"?"🟡":"🔴"} {l.city}</button>)}<div className="absolute bottom-4 left-4 rounded-xl border border-[#203451] bg-[#07111f]/95 p-3 text-xs">🟢 Vapaa · 🔵 Aktiivinen · 🟡 Neuvottelu · 🔴 Ongelma</div></div></Module>}
 function Sales({sellers}:{sellers:Seller[]}){const total=sellers.reduce((a,s)=>a+s.sales,0);const target=sellers.reduce((a,s)=>a+s.target,0);return <Module title="Myynti & tavoitteet" desc="Kaupat, tavoitteet, myynti/tunti ja kehitystrendit."><div className="grid gap-4 md:grid-cols-3"><Stat label="Kaupat" value={String(total+160)}/><Stat label="Tavoite" value={String(target+190)}/><Stat label="Toteuma" value="88,6 %"/></div><div className="mt-5 panel p-5"><h3 className="font-bold">Myyjät suhteessa tavoitteeseen</h3><div className="mt-4 space-y-3">{sellers.map(s=><div key={s.id}><div className="mb-1 flex justify-between text-sm"><span>{s.name}</span><span>{s.sales}/{s.target}</span></div><div className="h-2 rounded-full bg-slate-800"><div className={`h-2 rounded-full ${s.sales>=s.target?"bg-emerald-500":"bg-blue-500"}`} style={{width:`${Math.min(100,s.sales/s.target*100)}%`}}/></div></div>)}</div></div></Module>}
-function Hours({sellers}:{sellers:Seller[]}){return <Module title="Työajat" desc="Vuorot, aloitukset, tauot, lopetukset ja poikkeamat."><Table headers={["Myyjä","Vuoro","Aloitus","Lopetus","Tunnit","Tila"]} rows={sellers.map(s=>[s.name,s.shift,"09:58","18:02","8,1 h",statusBadge(s.status)])}/></Module>}
+function Hours({sellers,mode,notify}:{sellers:Seller[];mode:AppMode;notify:(x:string)=>void}){
+ const [entries,setEntries]=useState<any[]>([]);
+ const [loading,setLoading]=useState(false);
+ const load=async()=>{if(mode==="demo"){setEntries([]);return;}setLoading(true);try{const r=await api.timeEntries();setEntries(r.data);}catch(e){notify(e instanceof Error?e.message:"Työaikoja ei voitu ladata");}finally{setLoading(false);}};
+ useEffect(()=>{load();},[mode]);
+ const active=entries.find(e=>!e.endedAt);
+ const start=async(sellerId:string)=>{try{await api.startShift(sellerId);await load();notify("Vuoro aloitettu");}catch(e){notify(e instanceof Error?e.message:"Vuoron aloitus epäonnistui");}};
+ const end=async()=>{if(!active)return;try{await api.endShift(active.id);await load();notify("Vuoro lopetettu");}catch(e){notify(e instanceof Error?e.message:"Vuoron lopetus epäonnistui");}};
+ if(mode==="work") return <Module title="Työajat" desc="Oikeat aloitukset ja lopetukset tallennetaan PostgreSQL-tietokantaan." action={active?<button onClick={end} className="btn-secondary">⏹ Lopeta aktiivinen vuoro</button>:sellers[0]?<button onClick={()=>start(String(sellers[0].id))} className="btn-primary">▶ Aloita vuoro: {sellers[0].name}</button>:undefined}><div className="mb-4 text-sm text-slate-400">{loading?"Ladataan...":active?"🟢 Aktiivinen vuoro":"⚪ Ei aktiivista vuoroa"}</div><Table headers={["Myyjä","Aloitus","Lopetus","Tauko","Tila"]} rows={entries.map(e=>[sellers.find(s=>String(s.id)===String(e.sellerId))?.name||"Myyjä",new Date(e.startedAt).toLocaleString("fi-FI"),e.endedAt?new Date(e.endedAt).toLocaleString("fi-FI"):"—",String(e.breakMin)+" min",e.endedAt?"Päättynyt":"🟢 Käynnissä"])}/></Module>;
+ return <Module title="Työajat" desc="Vuorot, aloitukset, tauot, lopetukset ja poikkeamat."><Table headers={["Myyjä","Vuoro","Aloitus","Lopetus","Tunnit","Tila"]} rows={sellers.map(s=>[s.name,s.shift,"09:58","18:02","8,1 h",statusBadge(s.status)])}/></Module>;
+}
 function Reports({go}:{go:(p:Page)=>void}){return <Module title="Raportit" desc="Myyjä-, paikka-, alue-, kampanja- ja työaikaraportit."><div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">{["Myyjäraportti","Kauppapaikat","Kampanjat","Työajat"].map(x=><button key={x} onClick={()=>go(x==="Myyjäraportti"?"sellers":x==="Kauppapaikat"?"locations":"reports")} className="panel p-5 text-left hover:border-blue-500"><BarChart3 className="mb-3 text-blue-400"/><b>{x}</b><div className="mt-1 text-xs text-slate-500">Avaa raportti →</div></button>)}</div></Module>}
 function AI({go,notify}:{go:(p:Page)=>void;notify:(x:string)=>void}){const actions=["Vahvista 2 ensi viikon ständipaikkaa","Soita 3 vastausta odottavalle kontaktille","Täytä Jyväskylän 2 puuttuvaa ständitarvetta","Tarkista 1 päättyvä sopimus"];return <Module title="AI Action Center" desc="AI-avustus ehdottaa toimenpiteitä järjestelmän datan perusteella. Muutokset hyväksyy käyttäjä."><div className="rounded-2xl border border-violet-500/30 bg-violet-950/10 p-5"><div className="flex items-center gap-2 text-violet-200"><Bot/><b>Mitä minun pitää hoitaa tänään?</b></div><div className="mt-5 space-y-3">{actions.map(x=><button key={x} onClick={()=>notify("Tehtävä merkitty käsittelyyn")} className="flex w-full items-center gap-3 rounded-xl border border-[#203451] bg-[#0d1a2c] p-4 text-left hover:border-violet-500/50">🟣 <span>{x}</span><ArrowUpRight className="ml-auto" size={17}/></button>)}</div></div></Module>}
 function Documents({notify}:{notify:(x:string)=>void}){return <Module title="Dokumentit" desc="Sopimukset, hinnastot, pohjapiirrokset, kuvat ja ohjeet."><div className="panel p-8 text-center"><FileText className="mx-auto mb-3 text-blue-400" size={38}/><h3 className="font-bold">Dokumenttikirjasto</h3><p className="mt-1 text-sm text-slate-500">Tuotannossa tähän liitetään objektitallennus ja käyttöoikeudet.</p><button onClick={()=>notify("Latausikkuna avataan tuotantoversion storage-integraatiolla")} className="btn-primary mt-5"><Plus size={17}/> Lisää dokumentti</button></div></Module>}
