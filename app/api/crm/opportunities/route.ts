@@ -45,7 +45,7 @@ export async function GET(request: Request) {
       orderBy: [{ nextActionAt: "asc" }, { updatedAt: "desc" }],
     });
 
-    return NextResponse.json(opportunities);
+    return NextResponse.json({ ok: true, data: opportunities });
   } catch (error) {
     return handleApiError(error);
   }
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
       newValue: opportunity,
     });
 
-    return NextResponse.json(opportunity, { status: 201 });
+    return NextResponse.json({ ok: true, data: opportunity }, { status: 201 });
   } catch (error) {
     return handleApiError(error);
   }
