@@ -13,6 +13,9 @@ Avainpelaaja OS is a multi-tenant operational system for stand-sales coordinatio
 - Booking overlap validation for seller/location
 - Audit logging for API writes
 - Persistent CRM opportunity pipeline and CRM activity API
+- Dashboard summary API with live seller, booking, sales, CRM and completed-hour totals
+- Persistent time-entry API for shift start/end with audit logging
+- Persistent sales API for recording and listing seller sales
 - Prisma seed data
 - CI build validation with Node 20
 
@@ -43,6 +46,10 @@ Open `http://localhost:3000`.
 - `GET/POST /api/crm/opportunities`
 - `PATCH /api/crm/opportunities/:id`
 - `GET/POST /api/crm/activities`
+- `GET /api/dashboard/summary`
+- `GET/POST /api/time-entries`
+- `PATCH /api/time-entries/:id`
+- `GET/POST /api/sales`
 
 Business requests must carry `x-organization-id`, unless `DEFAULT_ORGANIZATION_ID` is configured on the server. Authentication/RBAC will replace this development scope mechanism before production deployment.
 
