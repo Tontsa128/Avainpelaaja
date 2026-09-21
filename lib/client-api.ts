@@ -53,12 +53,8 @@ export const api = {
     request<ApiCrmOpportunity[]>(
       stage ? `/api/crm/opportunities?stage=${encodeURIComponent(stage)}` : "/api/crm/opportunities",
     ),
-  crmActivities: (opportunityId?: string) =>
-    request<unknown[]>(
-      opportunityId
-        ? `/api/crm/activities?opportunityId=${encodeURIComponent(opportunityId)}`
-        : "/api/crm/activities",
-    ),
+  crmActivities: (opportunityId?: string, contactId?: string) =>
+    request<unknown[]>(`/api/crm/activities${opportunityId ? `?opportunityId=${encodeURIComponent(opportunityId)}` : contactId ? `?contactId=${encodeURIComponent(contactId)}` : ""}`),
   createSeller: (data: unknown) => request("/api/sellers", { method: "POST", body: JSON.stringify(data) }),
   createLocation: (data: unknown) => request("/api/locations", { method: "POST", body: JSON.stringify(data) }),
   createBooking: (data: unknown) => request("/api/bookings", { method: "POST", body: JSON.stringify(data) }),
