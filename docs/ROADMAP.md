@@ -73,11 +73,12 @@ Tätä tiekarttaa täydennetään projektin mukana toimitetun **Avainpelaaja OS 
 - CRM Opportunity API
 - CRM Activity API
 - Frontendin typed client API -rajapinnat
+- CRM-putken käyttöliittymä kytketty pysyvään API-dataan
+- CRM-aktiviteetin tallennus käyttöliittymästä
 
 ### Seuraava tekninen työjärjestys
 
 1. Auth + RBAC ja käyttäjän todellinen organisaatiojäsenyys
-2. CRM:n käyttöliittymän kytkentä pysyvään API-dataan
 3. Kalenterin työvuoromalli ja konfliktimoottorin laajennus
 4. Työajanseurannan API ja mobiilin leimaus
 5. Myyntikirjaukset ja tavoitelaskenta
