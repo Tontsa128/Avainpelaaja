@@ -10,7 +10,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "node prisma/seed.js",
     "db:push": "prisma db push",
-    "db:seed": "prisma generate && node prisma/seed.js"
+    "db:seed": "prisma generate && node prisma/seed.js",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "next": "^15.5.0",
