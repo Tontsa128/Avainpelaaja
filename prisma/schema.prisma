@@ -43,6 +43,7 @@ model Organization {
   contacts  Contact[]
   activities CrmActivity[]
   sales     Sale[]
+  crmOpportunities CrmOpportunity[]
 }
 
 model User {
@@ -90,6 +91,7 @@ model Location {
   score          Decimal?       @db.Decimal(5,2)
   contacts       Contact[]
   bookings       Booking[]
+  crmOpportunities CrmOpportunity[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 }
@@ -106,6 +108,7 @@ model Contact {
   email          String?
   notes          String?
   activities     CrmActivity[]
+  crmOpportunities CrmOpportunity[]
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 }
