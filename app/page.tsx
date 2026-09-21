@@ -228,7 +228,35 @@ function Dashboard({go,open,sellers,bookings,mode,notify}:{go:(p:Page)=>void;ope
  </div>
 }
 function Calendar({bookings,open,notify}:{bookings:Booking[];open:any;notify:(x:string)=>void}){
- return <div className="space-y-5"><div className="flex flex-wrap gap-2"><button onClick={()=>open("booking")} className="btn-primary"><Plus size={17}/> Uusi varaus</button><button onClick={()=>notify("Viikkonäkymä valittu")} className="btn-secondary">Viikko</button><button onClick={()=>notify("Päivänäkymä valittu")} className="btn-secondary">Päivä</button><button onClick={()=>notify("Kuukausinäkymä valittu")} className="btn-secondary">Kuukausi</button></div><div className="grid gap-3 md:grid-cols-7">{["Ma 21.9.","Ti 22.9.","Ke 23.9.","To 24.9.","Pe 25.9.","La 26.9.","Su 27.9."].map((d,i)=><div key={d} className="min-h-52 rounded-2xl border border-[#203451] bg-[#0d1a2c] p-3"><div className="mb-3 font-semibold">{d}</div><div className="space-y-2">{bookings.slice(i%2,i%2+2).map(b=><button onClick={()=>notify(`Varaus: ${b.seller} / ${b.location}`)} key={b.id} className={`w-full rounded-xl border p-2 text-left text-xs ${b.status==="Ongelma"?"border-red-500/30 bg-red-500/10":b.status==="Odottaa"?"border-yellow-500/30 bg-yellow-500/10":"border-blue-500/30 bg-blue-500/10"}`}><b>{b.time}</b><br/>{b.seller}<br/><span className="text-slate-400">{b.location}</span></button>)}</div></div>)}</div></div>
+ const [view,setView]=useState<"week"|"day"|"month">("week");
+ const [anchor,setAnchor]=useState(()=>new Date(2026,8,21));
+ const monday=(d:Date)=>{const x=new Date(d);const day=x.getDay()||7;x.setDate(x.getDate()-day+1);x.setHours(0,0,0,0);return x;};
+ const weekStart=monday(anchor);
+ const days=Array.from({length:7},(_,i)=>{const d=new Date(weekStart);d.setDate(d.getDate()+i);return d;});
+ const key=(d:Date)=>d.toISOString().slice(0,10);
+ const dateLabel=(d:Date)=>d.toLocaleDateString("fi-FI",{weekday:"short",day:"2-digit",month:"2-digit"}).replace(". "," ");
+ const bookingKey=(b:Booking)=>{const p=String(b.date).split(".");return p.length===3?\`${p[2]}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}\`:"";};
+ const dayBookings=(d:Date)=>bookings.filter(b=>bookingKey(b)===key(d));
+ const statusClass=(status:string)=>status==="Ongelma"?"border-red-500/30 bg-red-500/10":status==="Odottaa"?"border-yellow-500/30 bg-yellow-500/10":"border-blue-500/30 bg-blue-500/10";
+ const moveWeek=(delta:number)=>{const d=new Date(anchor);d.setDate(d.getDate()+delta*7);setAnchor(d);};
+ const today=new Date(); const todayKey=key(today);
+ return <div className="space-y-5">
+  <div className="flex flex-wrap items-center gap-2">
+   <button onClick={()=>open("booking")} className="btn-primary"><Plus size={17}/> Uusi varaus</button>
+   <button onClick={()=>setView("week")} className={view==="week"?"btn-primary":"btn-secondary"}>Viikko</button>
+   <button onClick={()=>setView("day")} className={view==="day"?"btn-primary":"btn-secondary"}>Päivä</button>
+   <button onClick={()=>setView("month")} className={view==="month"?"btn-primary":"btn-secondary"}>Kuukausi</button>
+   <button onClick={()=>setAnchor(new Date())} className="btn-secondary">Tänään</button>
+   <button onClick={()=>moveWeek(-1)} className="btn-secondary">←</button>
+   <button onClick={()=>moveWeek(1)} className="btn-secondary">→</button>
+  </div>
+  {view==="week"&&<div className="grid gap-3 md:grid-cols-7">{days.map(d=><div key={key(d)} className={`min-h-52 rounded-2xl border p-3 ${key(d)===todayKey?"border-blue-500/60 bg-blue-500/5":"border-[#203451] bg-[#0d1a2c]"}`}>
+    <div className="mb-3 flex items-center justify-between"><span className="font-semibold">{dateLabel(d)}</span><span className="text-xs text-slate-500">{dayBookings(d).length}</span></div>
+    <div className="space-y-2">{dayBookings(d).map(b=><button onClick={()=>notify(`Varaus: ${b.seller} / ${b.location}`)} key={b.id} className={`w-full rounded-xl border p-2 text-left text-xs ${statusClass(b.status)}`}><b>{b.time}</b><br/>{b.seller}<br/><span className="text-slate-400">{b.location}</span></button>)}{dayBookings(d).length===0&&<div className="pt-8 text-center text-xs text-slate-600">Ei varauksia</div>}</div>
+  </div>)}</div>}
+  {view==="day"&&<div className="panel p-4"><h3 className="mb-3 font-bold">{weekStart.toLocaleDateString("fi-FI",{weekday:"long",day:"numeric",month:"long"})}</h3><div className="space-y-2">{dayBookings(weekStart).map(b=><button key={b.id} onClick={()=>notify(`Varaus: ${b.seller} / ${b.location}`)} className={`w-full rounded-xl border p-3 text-left ${statusClass(b.status)}`}><b>{b.time}</b> · {b.seller} · {b.location}</button>)}{dayBookings(weekStart).length===0&&<EmptyState text="Tälle päivälle ei ole varauksia."/>}</div></div>}
+  {view==="month"&&<div className="panel p-4"><div className="grid grid-cols-7 gap-1 text-xs">{days.map(d=><div key={key(d)} className="rounded-lg border border-[#203451] p-2"><b>{dateLabel(d)}</b><div className="mt-2 text-slate-400">{dayBookings(d).length} varausta</div></div>)}</div><p className="mt-3 text-xs text-slate-500">Kuukausinäkymä näyttää tässä työviikon; varsinainen kuukausiruudukko tehdään seuraavassa kalenterivaiheessa.</p></div>}
+ </div>;
 }
 
 function CRM({notify,mode}:{notify:(x:string)=>void;mode:AppMode}) {
