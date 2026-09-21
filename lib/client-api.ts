@@ -42,7 +42,7 @@ export type ApiTimeEntry = {
   breakMin: number; notes?: string | null;
 };
 
-export type DashboardSummary = {
+export type ApiSale = { id: string; sellerId: string; soldAt: string; quantity: number; locationName?: string | null; campaign?: string | null; notes?: string | null; seller?: { id: string; name: string } | null; };\n\nexport type DashboardSummary = {
   sellers: number; activeSellers: number; locations: number; bookings: number;
   confirmedBookings: number; sales: number; openCrm: number; hours: number;
 };
@@ -60,7 +60,7 @@ export const api = {
   crmActivities: (opportunityId?: string, contactId?: string) => request<unknown[]>(
     `/api/crm/activities${opportunityId ? `?opportunityId=${encodeURIComponent(opportunityId)}` : contactId ? `?contactId=${encodeURIComponent(contactId)}` : ""}`
   ),
-  dashboardSummary: () => request<DashboardSummary>("/api/dashboard/summary"),
+  dashboardSummary: () => request<DashboardSummary>("/api/dashboard/summary"),\n  sales: (sellerId?: string) => request<ApiSale[]>(sellerId ? `/api/sales?sellerId=${encodeURIComponent(sellerId)}` : "/api/sales"),\n  createSale: (data: unknown) => request<ApiSale>("/api/sales", { method: "POST", body: JSON.stringify(data) }),
   timeEntries: (sellerId?: string) => request<ApiTimeEntry[]>(
     sellerId ? `/api/time-entries?sellerId=${encodeURIComponent(sellerId)}` : "/api/time-entries"
   ),
