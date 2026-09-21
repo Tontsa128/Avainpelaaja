@@ -96,7 +96,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       newValue: updated,
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json({ ok: true, data: updated });
   } catch (error) {
     return handleApiError(error);
   }
