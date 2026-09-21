@@ -72,8 +72,8 @@ export const api = {
     request<ApiTimeEntry>("/api/time-entries", { method: "POST", body: JSON.stringify({ sellerId, action: "BREAK" }) }),
   resumeShift: (sellerId: string) =>
     request<ApiTimeEntry>("/api/time-entries", { method: "POST", body: JSON.stringify({ sellerId, action: "RESUME" }) }),
-  endShift: (id: string, notes?: string) =>
-    request<ApiTimeEntry>(`/api/time-entries/${id}`, { method: "PATCH", body: JSON.stringify({ action: "END", notes }) }),
+  endShift: (id: string, breakMin = 0, notes?: string) =>
+    request<ApiTimeEntry>(`/api/time-entries/${id}`, { method: "PATCH", body: JSON.stringify({ action: "END", breakMin, notes }) }),
   createSeller: (data: unknown) => request<ApiSeller>("/api/sellers", { method: "POST", body: JSON.stringify(data) }),
   createLocation: (data: unknown) => request<ApiLocation>("/api/locations", { method: "POST", body: JSON.stringify(data) }),
   createBooking: (data: unknown) => request<ApiBooking>("/api/bookings", { method: "POST", body: JSON.stringify(data) }),
