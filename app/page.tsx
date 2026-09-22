@@ -75,6 +75,8 @@ export default function Page(){
  const [sellers,setSellers]=useState<Seller[]>([]);
  const [locations,setLocations]=useState<Location[]>([]);
  const [bookings,setBookings]=useState<Booking[]>([]);
+ const [workSummary,setWorkSummary]=useState({sellers:0,activeSellers:0,locations:0,bookings:0,confirmedBookings:0,sales:0,openCrm:0,hours:0});
+ const [workLoaded,setWorkLoaded]=useState(false);
  const demoSellers=mode==="demo"?initialSellers:sellers;
  const demoLocations=mode==="demo"?initialLocations:locations;
  const demoBookings=mode==="demo"?initialBookings:bookings;
@@ -82,14 +84,19 @@ export default function Page(){
  useEffect(()=>{
   if(mode!=="work") return;
   let cancelled=false;
-  Promise.all([api.sellers(),api.locations(),api.bookings()])
-   .then(([sellerRes,locationRes,bookingRes])=>{
+  Promise.all([api.sellers(),api.locations(),api.bookings(),fetch("/api/dashboard/summary",{cache:"no-store"})])
+   .then(async ([sellerRes,locationRes,bookingRes,summaryRes])=>{
     if(cancelled) return;
     setSellers((sellerRes.data as any[]).map(s=>({id:s.id,name:s.name,area:s.area||"Ei määritetty",shift:"—",target:s.targetPerShift||0,sales:0,status:s.active?"Varattu":"Poissa"})));
     setLocations((locationRes.data as any[]).map(l=>({id:l.id,name:l.name,city:l.city,status:l.status==="ACTIVE"?"Aktiivinen":l.status==="NEGOTIATION"?"Neuvottelu":l.status==="PROBLEM"?"Ongelma":"Vapaa",price:l.pricePerDay?Number(l.pricePerDay):0,score:l.score?Number(l.score):0,contact:l.contacts?.[0]?.name||"Ei määritetty"})));
     setBookings((bookingRes.data as any[]).map(b=>({id:b.id,date:new Date(b.startsAt).toLocaleDateString("fi-FI"),time:new Date(b.startsAt).toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"})+"–"+new Date(b.endsAt).toLocaleTimeString("fi-FI",{hour:"2-digit",minute:"2-digit"}),seller:b.seller?.name||"Ei määritetty",location:b.location?.name||"Ei määritetty",status:b.status==="CONFIRMED"?"Vahvistettu":b.status==="PROBLEM"?"Ongelma":"Odottaa"})));
+    if(summaryRes.ok){
+     const summary=await summaryRes.json();
+     if(summary.ok && summary.data){setWorkSummary(summary.data);}
+    }
+    setWorkLoaded(true);
    })
-   .catch(error=>notify("Työtilan tietoja ei voitu ladata: "+error.message));
+   .catch(error=>{setWorkLoaded(false);notify("Työtilan tietoja ei voitu ladata: "+error.message);});
   return()=>{cancelled=true};
  },[mode]);
 
@@ -106,7 +113,7 @@ export default function Page(){
    setSellers([]);setLocations([]);setBookings([]);
    notify("Demo-tila käytössä: esimerkkidata ladattu");
   } else {
-   setSellers([]);setLocations([]);setBookings([]);
+   setSellers([]);setLocations([]);setBookings([]);setWorkSummary({sellers:0,activeSellers:0,locations:0,bookings:0,confirmedBookings:0,sales:0,openCrm:0,hours:0});setWorkLoaded(false);
    notify("Työtila käytössä: aloita omien tietojen syöttäminen");
   }
  }
