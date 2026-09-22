@@ -184,7 +184,21 @@ export default function Page(){
               setSellers((v) => [...v, { id: res.data.id, name: res.data.name, area: res.data.area || "Ei määritetty", shift: "—", target: res.data.targetPerShift || 0, sales: 0, status: "Varattu" }]);
             } else if (modal === "location") {
               const res: any = await api.createLocation({ name: data.name, city: data.city, pricePerDay: Number(data.price) || 0 });
-              setLocations((v) => [...v, { id: res.data.id, name: res.data.name, city: res.data.city, status: "Vapaa", price: Number(res.data.pricePerDay) || 0, score: 0, contact: "Ei määritetty" }]);
+              let contactName = "Ei määritetty";
+              if (data.contact?.trim()) {
+                const contactRes = await fetch("/api/contacts", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ locationId: res.data.id, name: data.contact.trim() }),
+                });
+                if (!contactRes.ok) {
+                  const contactBody = await contactRes.json().catch(() => ({}));
+                  throw new Error(contactBody.error || "Yhteyshenkilön tallennus epäonnistui");
+                }
+                const contact = await contactRes.json();
+                contactName = contact.name || data.contact.trim();
+              }
+              setLocations((v) => [...v, { id: res.data.id, name: res.data.name, city: res.data.city, status: "Vapaa", price: Number(res.data.pricePerDay) || 0, score: 0, contact: contactName }]);
             } else if (modal === "booking") {
               const parts = String(data.date || "").split(".");
               const isoDate = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : data.date;
