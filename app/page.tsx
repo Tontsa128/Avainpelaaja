@@ -265,7 +265,7 @@ function Calendar({bookings,open,notify}:{bookings:Booking[];open:any;notify:(x:
  const days=Array.from({length:7},(_,i)=>{const d=new Date(weekStart);d.setDate(d.getDate()+i);return d;});
  const key=(d:Date)=>d.toISOString().slice(0,10);
  const dateLabel=(d:Date)=>d.toLocaleDateString("fi-FI",{weekday:"short",day:"2-digit",month:"2-digit"}).replace(". "," ");
- const bookingKey=(b:Booking)=>{const p=String(b.date).split(".");return p.length===3?\`${p[2]}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}\`:"";};
+ const bookingKey=(b:Booking)=>{const p=String(b.date).split(".");return p.length===3?`${p[2]}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`:"";};
  const dayBookings=(d:Date)=>bookings.filter(b=>bookingKey(b)===key(d));
  const statusClass=(status:string)=>status==="Ongelma"?"border-red-500/30 bg-red-500/10":status==="Odottaa"?"border-yellow-500/30 bg-yellow-500/10":"border-blue-500/30 bg-blue-500/10";
  const moveWeek=(delta:number)=>{const d=new Date(anchor);d.setDate(d.getDate()+delta*7);setAnchor(d);};
